@@ -25,6 +25,8 @@ type AppConfig struct {
         Concurrency     int
         // DryRun indicates whether to simulate operations without launching Terminal
         DryRun          bool
+        // BaseBranch is the git branch to use as the base for new worktree branches (default: "develop")
+        BaseBranch      string
 }
 
 // ParseConfig parses configuration from the default command-line arguments (os.Args[1:]).
@@ -43,6 +45,7 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         var apiKey string
         var linearEndpoint string
         var dryRun bool
+        var baseBranch string
 
         // Create a new flag set for parsing monday CLI arguments
         fs := flag.NewFlagSet("monday", flag.ContinueOnError)
@@ -50,6 +53,7 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         fs.StringVar(&apiKey, "api-key", "", "Linear API key (overrides LINEAR_API_KEY env var)")
         fs.StringVar(&linearEndpoint, "linear-endpoint", "", "Linear API endpoint (for testing)")
         fs.BoolVar(&dryRun, "dry-run", false, "Don't actually launch Terminal")
+        fs.StringVar(&baseBranch, "base-branch", "develop", "Git base branch for new worktrees")
         
         // Parse the provided arguments
         err := fs.Parse(args)
@@ -87,5 +91,6 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
                 LinearEndpoint: linearEndpoint,
                 Concurrency:    concurrency,
                 DryRun:         dryRun,
+                BaseBranch:     baseBranch,
         }, nil
 }

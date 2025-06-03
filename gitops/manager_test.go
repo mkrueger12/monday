@@ -78,11 +78,12 @@ func TestPrepareRepository_InvalidBranch(t *testing.T) {
 
 func TestCreateWorktreeForIssue_Success(t *testing.T) {
         repoPath := setupTestRepo(t)
+        worktreeRoot := t.TempDir()
 
-        worktreePath, err := CreateWorktreeForIssue(repoPath, "ISSUE-123", "main")
+        worktreePath, err := CreateWorktreeForIssue(worktreeRoot, repoPath, "ISSUE-123", "main")
         require.NoError(t, err)
 
-        expectedPath := filepath.Join(repoPath, "worktrees", "ISSUE-123")
+        expectedPath := filepath.Join(worktreeRoot, "ISSUE-123")
         assert.Equal(t, expectedPath, worktreePath)
 
         info, err := os.Stat(worktreePath)
@@ -96,25 +97,28 @@ func TestCreateWorktreeForIssue_Success(t *testing.T) {
 
 func TestCreateWorktreeForIssue_ExistingWorktree(t *testing.T) {
         repoPath := setupTestRepo(t)
+        worktreeRoot := t.TempDir()
 
-        _, err := CreateWorktreeForIssue(repoPath, "ISSUE-123", "main")
+        _, err := CreateWorktreeForIssue(worktreeRoot, repoPath, "ISSUE-123", "main")
         require.NoError(t, err)
 
-        _, err = CreateWorktreeForIssue(repoPath, "ISSUE-123", "main")
+        _, err = CreateWorktreeForIssue(worktreeRoot, repoPath, "ISSUE-123", "main")
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "already exists")
 }
 
 func TestCreateWorktreeForIssue_InvalidRepo(t *testing.T) {
-        worktreePath, err := CreateWorktreeForIssue("/nonexistent/path", "ISSUE-123", "main")
+        worktreeRoot := t.TempDir()
+        worktreePath, err := CreateWorktreeForIssue(worktreeRoot, "/nonexistent/path", "ISSUE-123", "main")
         assert.Error(t, err)
         assert.Empty(t, worktreePath)
 }
 
 func TestCreateWorktreeForIssue_InvalidBaseBranch(t *testing.T) {
         repoPath := setupTestRepo(t)
+        worktreeRoot := t.TempDir()
 
-        worktreePath, err := CreateWorktreeForIssue(repoPath, "ISSUE-123", "nonexistent-branch")
+        worktreePath, err := CreateWorktreeForIssue(worktreeRoot, repoPath, "ISSUE-123", "nonexistent-branch")
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "branch")
         assert.Empty(t, worktreePath)

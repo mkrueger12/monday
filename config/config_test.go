@@ -23,6 +23,7 @@ func TestParseConfig_Success(t *testing.T) {
                                 LinearEndpoint: "",
                                 Concurrency:    3, // default
                                 DryRun:         false,
+                                BaseBranch:     "develop", // default
                         },
                 },
                 {
@@ -34,6 +35,7 @@ func TestParseConfig_Success(t *testing.T) {
                                 LinearEndpoint: "",
                                 Concurrency:    3, // default
                                 DryRun:         false,
+                                BaseBranch:     "develop", // default
                         },
                 },
                 {
@@ -45,6 +47,19 @@ func TestParseConfig_Success(t *testing.T) {
                                 LinearEndpoint: "",
                                 Concurrency:    5,
                                 DryRun:         false,
+                                BaseBranch:     "develop", // default
+                        },
+                },
+                {
+                        name: "with custom base branch",
+                        args: []string{"monday", "-base-branch", "main", "ISSUE-123", "/path/to/repo"},
+                        expected: &AppConfig{
+                                IssueIDs:       []string{"ISSUE-123"},
+                                GitRepoPath:    "/path/to/repo",
+                                LinearEndpoint: "",
+                                Concurrency:    3, // default
+                                DryRun:         false,
+                                BaseBranch:     "main",
                         },
                 },
         }

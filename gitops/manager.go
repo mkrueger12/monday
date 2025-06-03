@@ -48,9 +48,9 @@ func PrepareRepository(repoPath, baseBranch string) error {
 
 // CreateWorktreeForIssue creates an isolated git worktree for developing a specific Linear issue.
 // It creates a new branch based on the base branch and sets up a separate working directory
-// in the "worktrees" subdirectory. This allows multiple issues to be worked on simultaneously
-// without interfering with each other.
-func CreateWorktreeForIssue(repoPath, issueID, baseBranch string) (string, error) {
+// outside the main repository. This allows multiple issues to be worked on simultaneously
+// without interfering with each other or cluttering the main repository.
+func CreateWorktreeForIssue(worktreeRoot, repoPath, issueID, baseBranch string) (string, error) {
         // Validate that we're working with a git repository
         if err := validateGitRepository(repoPath); err != nil {
                 return "", fmt.Errorf("not a git repository: %w", err)
@@ -64,18 +64,17 @@ func CreateWorktreeForIssue(repoPath, issueID, baseBranch string) (string, error
         // Create a git-safe branch name from the issue ID
         branchName := SanitizeBranchName(issueID)
         
-        // Set up paths for the worktree structure
-        worktreesDir := filepath.Join(repoPath, "worktrees")
-        worktreePath := filepath.Join(worktreesDir, issueID)
+        // Set up paths for the worktree structure outside the main repository
+        worktreePath := filepath.Join(worktreeRoot, issueID)
 
         // Check if a worktree for this issue already exists
         if _, err := os.Stat(worktreePath); err == nil {
                 return "", fmt.Errorf("worktree for issue %s already exists at %s", issueID, worktreePath)
         }
 
-        // Create the worktrees directory if it doesn't exist
-        if err := os.MkdirAll(worktreesDir, 0755); err != nil {
-                return "", fmt.Errorf("failed to create worktrees directory: %w", err)
+        // Create the worktree root directory if it doesn't exist
+        if err := os.MkdirAll(worktreeRoot, 0755); err != nil {
+                return "", fmt.Errorf("failed to create worktree root directory: %w", err)
         }
 
         // Create the git worktree with a new branch based on the base branch

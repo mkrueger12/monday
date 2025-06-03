@@ -52,6 +52,11 @@ func setupTestRepoForMain(t *testing.T) string {
         cmd.Dir = tempDir
         require.NoError(t, cmd.Run())
 
+        // Create develop branch for testing
+        cmd = exec.Command("git", "checkout", "-b", "develop")
+        cmd.Dir = tempDir
+        require.NoError(t, cmd.Run())
+
         return tempDir
 }
 
@@ -111,6 +116,9 @@ func setupMockLinearServer(t *testing.T) *httptest.Server {
 }
 
 func TestRunApplication_SingleIssue_Success(t *testing.T) {
+        // Clean up any existing worktrees
+        os.RemoveAll("/tmp/monday-worktrees")
+        
         repoPath := setupTestRepoForMain(t)
         server := setupMockLinearServer(t)
         defer server.Close()
@@ -129,7 +137,7 @@ func TestRunApplication_SingleIssue_Success(t *testing.T) {
         assert.NoError(t, err)
 
         // Verify worktree was created
-        worktreePath := filepath.Join(repoPath, "worktrees", "DEL-123")
+        worktreePath := filepath.Join("/tmp/monday-worktrees", "DEL-123")
         info, err := os.Stat(worktreePath)
         require.NoError(t, err)
         assert.True(t, info.IsDir())
@@ -146,6 +154,9 @@ func TestRunApplication_SingleIssue_Success(t *testing.T) {
 }
 
 func TestRunApplication_MultipleIssues_Success(t *testing.T) {
+        // Clean up any existing worktrees
+        os.RemoveAll("/tmp/monday-worktrees")
+        
         repoPath := setupTestRepoForMain(t)
         server := setupMockLinearServer(t)
         defer server.Close()
@@ -165,7 +176,7 @@ func TestRunApplication_MultipleIssues_Success(t *testing.T) {
 
         // Verify both worktrees were created
         for _, issueID := range []string{"DEL-123", "DEL-456"} {
-                worktreePath := filepath.Join(repoPath, "worktrees", issueID)
+                worktreePath := filepath.Join("/tmp/monday-worktrees", issueID)
                 info, err := os.Stat(worktreePath)
                 require.NoError(t, err)
                 assert.True(t, info.IsDir())
@@ -236,6 +247,9 @@ func TestRunApplication_MissingAPIKey(t *testing.T) {
 }
 
 func TestRunApplication_ConcurrentProcessing(t *testing.T) {
+        // Clean up any existing worktrees
+        os.RemoveAll("/tmp/monday-worktrees")
+        
         repoPath := setupTestRepoForMain(t)
         server := setupMockLinearServer(t)
         defer server.Close()
@@ -259,7 +273,7 @@ func TestRunApplication_ConcurrentProcessing(t *testing.T) {
 
         // Verify all worktrees were created
         for _, issueID := range issues {
-                worktreePath := filepath.Join(repoPath, "worktrees", issueID)
+                worktreePath := filepath.Join("/tmp/monday-worktrees", issueID)
                 info, err := os.Stat(worktreePath)
                 require.NoError(t, err)
                 assert.True(t, info.IsDir())
@@ -267,6 +281,9 @@ func TestRunApplication_ConcurrentProcessing(t *testing.T) {
 }
 
 func TestRunApplication_MarkIssueInProgress(t *testing.T) {
+        // Clean up any existing worktrees
+        os.RemoveAll("/tmp/monday-worktrees")
+        
         repoPath := setupTestRepoForMain(t)
         
         var receivedQueries []linear.GraphQLRequest

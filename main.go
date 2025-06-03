@@ -53,7 +53,7 @@ func (app *Application) Run(args []string) error {
         log.Printf("Processing %d issues with concurrency %d", len(cfg.IssueIDs), cfg.Concurrency)
 
         // Ensure the git repository is ready and on the correct base branch
-        if err := gitops.PrepareRepository(cfg.GitRepoPath, "main"); err != nil {
+        if err := gitops.PrepareRepository(cfg.GitRepoPath, cfg.BaseBranch); err != nil {
                 return fmt.Errorf("failed to prepare repository: %w", err)
         }
 
@@ -135,7 +135,8 @@ func (app *Application) processIssue(issueID string, cfg *config.AppConfig, line
 
         // Step 3: Create an isolated git worktree for this issue
         log.Printf("[%s] Creating worktree...", issueID)
-        worktreePath, err := gitops.CreateWorktreeForIssue(cfg.GitRepoPath, issueID, "main")
+        worktreeRoot := "/tmp/monday-worktrees"
+        worktreePath, err := gitops.CreateWorktreeForIssue(worktreeRoot, cfg.GitRepoPath, issueID, cfg.BaseBranch)
         if err != nil {
                 return fmt.Errorf("failed to create worktree: %w", err)
         }
