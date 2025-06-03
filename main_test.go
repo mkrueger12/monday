@@ -59,19 +59,50 @@ func setupMockLinearServer(t *testing.T) *httptest.Server {
                 var req linear.GraphQLRequest
                 json.NewDecoder(r.Body).Decode(&req)
 
-                issueID := req.Variables["id"].(string)
-                
-                response := linear.GraphQLResponse{
-                        Data: linear.GraphQLData{
-                                Issue: linear.IssueDetails{
-                                        ID:         issueID,
-                                        Title:      "Test Issue " + issueID,
-                                        BranchName: issueID + "-test-issue",
-                                        URL:        "https://linear.app/team/issue/" + issueID,
+                if req.Variables["id"] != nil {
+                        issueID := req.Variables["id"].(string)
+                        
+                        if req.Query != "" && req.Query[0:5] == "query" {
+                                // Handle issue details query
+                                response := linear.GraphQLResponse{
+                                        Data: linear.GraphQLData{
+                                                Issue: linear.IssueDetails{
+                                                        ID:         issueID,
+                                                        Title:      "Test Issue " + issueID,
+                                                        BranchName: issueID + "-test-issue",
+                                                        URL:        "https://linear.app/team/issue/" + issueID,
+                                                },
+                                        },
+                                }
+                                json.NewEncoder(w).Encode(response)
+                        } else {
+                                // Handle issue update mutation
+                                response := map[string]interface{}{
+                                        "data": map[string]interface{}{
+                                                "issueUpdate": map[string]interface{}{
+                                                        "success": true,
+                                                },
+                                        },
+                                }
+                                json.NewEncoder(w).Encode(response)
+                        }
+                } else {
+                        // Handle workflow states query
+                        response := map[string]interface{}{
+                                "data": map[string]interface{}{
+                                        "workflowStates": map[string]interface{}{
+                                                "nodes": []map[string]interface{}{
+                                                        {
+                                                                "id":   "state-in-progress",
+                                                                "name": "In Progress",
+                                                                "type": "started",
+                                                        },
+                                                },
+                                        },
                                 },
-                        },
+                        }
+                        json.NewEncoder(w).Encode(response)
                 }
-                json.NewEncoder(w).Encode(response)
         }))
 }
 
@@ -216,4 +247,92 @@ func TestRunApplication_ConcurrentProcessing(t *testing.T) {
                 require.NoError(t, err)
                 assert.True(t, info.IsDir())
         }
+}
+
+func TestRunApplication_MarkIssueInProgress(t *testing.T) {
+        repoPath := setupTestRepoForMain(t)
+        
+        var receivedQueries []linear.GraphQLRequest
+        server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                var req linear.GraphQLRequest
+                json.NewDecoder(r.Body).Decode(&req)
+                receivedQueries = append(receivedQueries, req)
+
+                if req.Variables["id"] != nil {
+                        issueID := req.Variables["id"].(string)
+                        
+                        if req.Query != "" && req.Query[0:5] == "query" {
+                                // Handle issue details query
+                                response := linear.GraphQLResponse{
+                                        Data: linear.GraphQLData{
+                                                Issue: linear.IssueDetails{
+                                                        ID:         issueID,
+                                                        Title:      "Test Issue " + issueID,
+                                                        BranchName: issueID + "-test-issue",
+                                                        URL:        "https://linear.app/team/issue/" + issueID,
+                                                },
+                                        },
+                                }
+                                json.NewEncoder(w).Encode(response)
+                        } else {
+                                // Handle issue update mutation
+                                response := map[string]interface{}{
+                                        "data": map[string]interface{}{
+                                                "issueUpdate": map[string]interface{}{
+                                                        "success": true,
+                                                },
+                                        },
+                                }
+                                json.NewEncoder(w).Encode(response)
+                        }
+                } else {
+                        // Handle workflow states query
+                        response := map[string]interface{}{
+                                "data": map[string]interface{}{
+                                        "workflowStates": map[string]interface{}{
+                                                "nodes": []map[string]interface{}{
+                                                        {
+                                                                "id":   "state-in-progress",
+                                                                "name": "In Progress",
+                                                                "type": "started",
+                                                        },
+                                                },
+                                        },
+                                },
+                        }
+                        json.NewEncoder(w).Encode(response)
+                }
+        }))
+        defer server.Close()
+
+        app := &Application{
+                DryRun: true,
+        }
+
+        err := app.Run([]string{
+                "-api-key", "test-key",
+                "-linear-endpoint", server.URL,
+                "ISSUE-123",
+                repoPath,
+        })
+
+        assert.NoError(t, err)
+        
+        // Verify that we made the expected API calls:
+        // 1. Get issue details
+        // 2. Get workflow states 
+        // 3. Update issue status
+        require.Len(t, receivedQueries, 3)
+        
+        // First call should be issue details
+        assert.Contains(t, receivedQueries[0].Query, "issue")
+        assert.Equal(t, "ISSUE-123", receivedQueries[0].Variables["id"])
+        
+        // Second call should be workflow states
+        assert.Contains(t, receivedQueries[1].Query, "workflowStates")
+        
+        // Third call should be issue update
+        assert.Contains(t, receivedQueries[2].Query, "issueUpdate")
+        assert.Equal(t, "ISSUE-123", receivedQueries[2].Variables["id"])
+        assert.Equal(t, "state-in-progress", receivedQueries[2].Variables["stateId"])
 }
