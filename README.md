@@ -6,8 +6,6 @@ Okay, here's a Product Development Document (PDD) or Technical Specification tha
 **Product Development Document: "monday" CLI Tool**
 
 **Version:** 1.0
-**Date:** October 27, 2023
-**Author/Requester:** [Your Name/Team]
 
 **1. Overview**
 
