@@ -71,6 +71,9 @@ func TestLaunchFridayInMacOSTerminal_ScriptGeneration(t *testing.T) {
         // Either way is acceptable for this test
         if err != nil {
                 assert.Contains(t, err.Error(), "osascript")
+                assert.Error(t, err)
+        } else {
+                assert.NoError(t, err)
         }
 }
 
@@ -101,6 +104,7 @@ func TestEscapeAppleScriptString(t *testing.T) {
                 t.Run(tt.input, func(t *testing.T) {
                         result := escapeAppleScriptString(tt.input)
                         assert.Equal(t, tt.expected, result)
+                        assert.IsType(t, "", result)
                 })
         }
 }
@@ -108,6 +112,7 @@ func TestEscapeAppleScriptString(t *testing.T) {
 func TestNewMacOSRunner(t *testing.T) {
         runner := NewMacOSRunner()
         assert.NotNil(t, runner)
+        assert.IsType(t, &MacOSRunner{}, runner)
 }
 
 func TestGenerateAppleScript_Structure(t *testing.T) {
@@ -123,4 +128,8 @@ func TestGenerateAppleScript_Structure(t *testing.T) {
         // Should end with end tell
         lastLine := strings.TrimSpace(lines[len(lines)-1])
         assert.Equal(t, "end tell", lastLine)
+        
+        // Should contain the path and title
+        assert.Contains(t, script, "/test/path")
+        assert.Contains(t, script, "Test Title")
 }

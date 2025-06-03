@@ -60,9 +60,10 @@ func TestFetchIssueDetails_HTTPError(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        _, err := client.FetchIssueDetails("DEL-999")
+        issue, err := client.FetchIssueDetails("DEL-999")
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "404")
+        assert.Nil(t, issue)
 }
 
 func TestFetchIssueDetails_GraphQLError(t *testing.T) {
@@ -79,9 +80,10 @@ func TestFetchIssueDetails_GraphQLError(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        _, err := client.FetchIssueDetails("DEL-999")
+        issue, err := client.FetchIssueDetails("DEL-999")
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "Issue not found")
+        assert.Nil(t, issue)
 }
 
 func TestFetchIssueDetails_MalformedJSON(t *testing.T) {
@@ -93,17 +95,19 @@ func TestFetchIssueDetails_MalformedJSON(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        _, err := client.FetchIssueDetails("DEL-123")
+        issue, err := client.FetchIssueDetails("DEL-123")
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "decode")
+        assert.Nil(t, issue)
 }
 
 func TestFetchIssueDetails_NetworkError(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = "http://nonexistent-server:12345"
 
-        _, err := client.FetchIssueDetails("DEL-123")
+        issue, err := client.FetchIssueDetails("DEL-123")
         assert.Error(t, err)
+        assert.Nil(t, issue)
 }
 
 func TestGraphQLQuery_Structure(t *testing.T) {

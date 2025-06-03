@@ -79,8 +79,9 @@ func TestParseConfig_Errors(t *testing.T) {
 
         for _, tt := range tests {
                 t.Run(tt.name, func(t *testing.T) {
-                        _, err := ParseConfigFromArgs(tt.args[1:]) // skip program name
+                        config, err := ParseConfigFromArgs(tt.args[1:]) // skip program name
                         assert.Error(t, err)
+                        assert.Nil(t, config)
                 })
         }
 }
@@ -97,6 +98,7 @@ func TestParseConfig_LinearAPIKey(t *testing.T) {
                 config, err := ParseConfigFromArgs([]string{"ISSUE-123", "/path/to/repo"})
                 require.NoError(t, err)
                 assert.Equal(t, "test-api-key", config.LinearAPIKey)
+                assert.Equal(t, []string{"ISSUE-123"}, config.IssueIDs)
         })
 
         t.Run("from flag overrides env", func(t *testing.T) {
@@ -110,5 +112,6 @@ func TestParseConfig_LinearAPIKey(t *testing.T) {
                 config, err := ParseConfigFromArgs([]string{"-api-key", "flag-key", "ISSUE-123", "/path/to/repo"})
                 require.NoError(t, err)
                 assert.Equal(t, "flag-key", config.LinearAPIKey)
+                assert.Equal(t, "/path/to/repo", config.GitRepoPath)
         })
 }

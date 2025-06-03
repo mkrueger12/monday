@@ -54,6 +54,12 @@ func TestPrepareRepository_Success(t *testing.T) {
 
         err := PrepareRepository(repoPath, "main")
         assert.NoError(t, err)
+        
+        // Verify the repository is still valid after preparation
+        gitDir := filepath.Join(repoPath, ".git")
+        info, err := os.Stat(gitDir)
+        require.NoError(t, err)
+        assert.True(t, info.IsDir())
 }
 
 func TestPrepareRepository_InvalidPath(t *testing.T) {
@@ -100,16 +106,18 @@ func TestCreateWorktreeForIssue_ExistingWorktree(t *testing.T) {
 }
 
 func TestCreateWorktreeForIssue_InvalidRepo(t *testing.T) {
-        _, err := CreateWorktreeForIssue("/nonexistent/path", "ISSUE-123", "main")
+        worktreePath, err := CreateWorktreeForIssue("/nonexistent/path", "ISSUE-123", "main")
         assert.Error(t, err)
+        assert.Empty(t, worktreePath)
 }
 
 func TestCreateWorktreeForIssue_InvalidBaseBranch(t *testing.T) {
         repoPath := setupTestRepo(t)
 
-        _, err := CreateWorktreeForIssue(repoPath, "ISSUE-123", "nonexistent-branch")
+        worktreePath, err := CreateWorktreeForIssue(repoPath, "ISSUE-123", "nonexistent-branch")
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "branch")
+        assert.Empty(t, worktreePath)
 }
 
 func TestSanitizeBranchName(t *testing.T) {
@@ -131,6 +139,7 @@ func TestSanitizeBranchName(t *testing.T) {
                 t.Run(tt.input, func(t *testing.T) {
                         result := SanitizeBranchName(tt.input)
                         assert.Equal(t, tt.expected, result)
+                        assert.NotEmpty(t, result)
                 })
         }
 }

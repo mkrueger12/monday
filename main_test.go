@@ -195,6 +195,7 @@ func TestRunApplication_LinearAPIError(t *testing.T) {
 
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "failed to process")
+        assert.NotNil(t, err)
 }
 
 func TestRunApplication_InvalidRepo(t *testing.T) {
@@ -214,6 +215,7 @@ func TestRunApplication_InvalidRepo(t *testing.T) {
 
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "not a git repository")
+        assert.NotNil(t, err)
 }
 
 func TestRunApplication_MissingAPIKey(t *testing.T) {
@@ -230,6 +232,7 @@ func TestRunApplication_MissingAPIKey(t *testing.T) {
 
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "API key")
+        assert.NotNil(t, err)
 }
 
 func TestRunApplication_ConcurrentProcessing(t *testing.T) {
