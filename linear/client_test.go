@@ -21,7 +21,12 @@ func TestFetchIssueDetails_Success(t *testing.T) {
         server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
                 assert.Equal(t, "POST", r.Method)
                 assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-                assert.Equal(t, "Bearer test-api-key", r.Header.Get("Authorization"))
+                assert.Equal(t, "test-api-key", r.Header.Get("Authorization"))
+
+                var req GraphQLRequest
+                json.NewDecoder(r.Body).Decode(&req)
+                assert.Contains(t, req.Query, "identifier: $identifier")
+                assert.Equal(t, "ISSUE-123", req.Variables["identifier"])
 
                 response := GraphQLResponse{
                         Data: GraphQLData{
@@ -128,7 +133,7 @@ func TestGraphQLQuery_Structure(t *testing.T) {
         assert.Contains(t, receivedQuery.Query, "title")
         assert.Contains(t, receivedQuery.Query, "branchName")
         assert.Contains(t, receivedQuery.Query, "url")
-        assert.Equal(t, "ISSUE-123", receivedQuery.Variables["id"])
+        assert.Equal(t, "ISSUE-123", receivedQuery.Variables["identifier"])
 }
 
 func TestMarkIssueInProgress_Success(t *testing.T) {
@@ -136,10 +141,11 @@ func TestMarkIssueInProgress_Success(t *testing.T) {
         server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
                 assert.Equal(t, "POST", r.Method)
                 assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-                assert.Equal(t, "Bearer test-api-key", r.Header.Get("Authorization"))
+                assert.Equal(t, "test-api-key", r.Header.Get("Authorization"))
 
                 callCount++
                 if callCount == 1 {
+                        // First call: getInProgressStateID
                         response := map[string]interface{}{
                                 "data": map[string]interface{}{
                                         "workflowStates": map[string]interface{}{
@@ -155,6 +161,7 @@ func TestMarkIssueInProgress_Success(t *testing.T) {
                         }
                         json.NewEncoder(w).Encode(response)
                 } else {
+                        // Second call: issueUpdate
                         response := map[string]interface{}{
                                 "data": map[string]interface{}{
                                         "issueUpdate": map[string]interface{}{
@@ -170,7 +177,13 @@ func TestMarkIssueInProgress_Success(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        err := client.MarkIssueInProgress("ISSUE-123")
+        issue := &IssueDetails{
+                ID:         "uuid-123",
+                Title:      "Test Issue",
+                BranchName: "test-branch",
+                URL:        "https://linear.app/test",
+        }
+        err := client.MarkIssueInProgress(issue)
         require.NoError(t, err)
         assert.Equal(t, 2, callCount)
 }
@@ -185,7 +198,8 @@ func TestMarkIssueInProgress_HTTPError(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        err := client.MarkIssueInProgress("ISSUE-123")
+        issue := &IssueDetails{ID: "uuid-123"}
+        err := client.MarkIssueInProgress(issue)
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "401")
 }
@@ -204,7 +218,8 @@ func TestMarkIssueInProgress_GraphQLError(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        err := client.MarkIssueInProgress("ISSUE-123")
+        issue := &IssueDetails{ID: "uuid-123"}
+        err := client.MarkIssueInProgress(issue)
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "Issue not found or access denied")
 }
@@ -220,6 +235,7 @@ func TestMarkIssueInProgress_MutationStructure(t *testing.T) {
                 
                 callCount++
                 if callCount == 1 {
+                        // First call: getInProgressStateID
                         response := map[string]interface{}{
                                 "data": map[string]interface{}{
                                         "workflowStates": map[string]interface{}{
@@ -235,6 +251,7 @@ func TestMarkIssueInProgress_MutationStructure(t *testing.T) {
                         }
                         json.NewEncoder(w).Encode(response)
                 } else {
+                        // Second call: issueUpdate
                         response := map[string]interface{}{
                                 "data": map[string]interface{}{
                                         "issueUpdate": map[string]interface{}{
@@ -250,7 +267,13 @@ func TestMarkIssueInProgress_MutationStructure(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        err := client.MarkIssueInProgress("ISSUE-123")
+        issue := &IssueDetails{
+                ID:         "uuid-123",
+                Title:      "Test Issue",
+                BranchName: "test-branch",
+                URL:        "https://linear.app/test",
+        }
+        err := client.MarkIssueInProgress(issue)
         require.NoError(t, err)
 
         require.Len(t, receivedQueries, 2)
@@ -263,7 +286,7 @@ func TestMarkIssueInProgress_MutationStructure(t *testing.T) {
         assert.Contains(t, updateQuery.Query, "mutation")
         assert.Contains(t, updateQuery.Query, "issueUpdate")
         assert.Contains(t, updateQuery.Query, "stateId")
-        assert.Equal(t, "ISSUE-123", updateQuery.Variables["id"])
+        assert.Equal(t, "uuid-123", updateQuery.Variables["id"])
         assert.Equal(t, "state-123", updateQuery.Variables["stateId"])
 }
 
@@ -294,7 +317,8 @@ func TestMarkIssueInProgress_StateNotFound(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        err := client.MarkIssueInProgress("ISSUE-123")
+        issue := &IssueDetails{ID: "uuid-123"}
+        err := client.MarkIssueInProgress(issue)
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "In Progress state not found")
 }

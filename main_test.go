@@ -258,33 +258,31 @@ func TestRunApplication_MarkIssueInProgress(t *testing.T) {
                 json.NewDecoder(r.Body).Decode(&req)
                 receivedQueries = append(receivedQueries, req)
 
-                if req.Variables["id"] != nil {
-                        issueID := req.Variables["id"].(string)
+                if req.Variables["identifier"] != nil {
+                        issueID := req.Variables["identifier"].(string)
                         
-                        if req.Query != "" && req.Query[0:5] == "query" {
-                                // Handle issue details query
-                                response := linear.GraphQLResponse{
-                                        Data: linear.GraphQLData{
-                                                Issue: linear.IssueDetails{
-                                                        ID:         issueID,
-                                                        Title:      "Test Issue " + issueID,
-                                                        BranchName: issueID + "-test-issue",
-                                                        URL:        "https://linear.app/team/issue/" + issueID,
-                                                },
+                        // Handle issue details query
+                        response := linear.GraphQLResponse{
+                                Data: linear.GraphQLData{
+                                        Issue: linear.IssueDetails{
+                                                ID:         "uuid-" + issueID,
+                                                Title:      "Test Issue " + issueID,
+                                                BranchName: issueID + "-test-issue",
+                                                URL:        "https://linear.app/team/issue/" + issueID,
                                         },
-                                }
-                                json.NewEncoder(w).Encode(response)
-                        } else {
-                                // Handle issue update mutation
-                                response := map[string]interface{}{
-                                        "data": map[string]interface{}{
-                                                "issueUpdate": map[string]interface{}{
-                                                        "success": true,
-                                                },
-                                        },
-                                }
-                                json.NewEncoder(w).Encode(response)
+                                },
                         }
+                        json.NewEncoder(w).Encode(response)
+                } else if req.Variables["id"] != nil {
+                        // Handle issue update mutation
+                        response := map[string]interface{}{
+                                "data": map[string]interface{}{
+                                        "issueUpdate": map[string]interface{}{
+                                                "success": true,
+                                        },
+                                },
+                        }
+                        json.NewEncoder(w).Encode(response)
                 } else {
                         // Handle workflow states query
                         response := map[string]interface{}{
@@ -326,13 +324,13 @@ func TestRunApplication_MarkIssueInProgress(t *testing.T) {
         
         // First call should be issue details
         assert.Contains(t, receivedQueries[0].Query, "issue")
-        assert.Equal(t, "ISSUE-123", receivedQueries[0].Variables["id"])
+        assert.Equal(t, "ISSUE-123", receivedQueries[0].Variables["identifier"])
         
         // Second call should be workflow states
         assert.Contains(t, receivedQueries[1].Query, "workflowStates")
         
         // Third call should be issue update
         assert.Contains(t, receivedQueries[2].Query, "issueUpdate")
-        assert.Equal(t, "ISSUE-123", receivedQueries[2].Variables["id"])
+        assert.Equal(t, "uuid-ISSUE-123", receivedQueries[2].Variables["id"])
         assert.Equal(t, "state-in-progress", receivedQueries[2].Variables["stateId"])
 }

@@ -4,6 +4,7 @@ import (
         "bytes"
         "encoding/json"
         "fmt"
+        "io"
         "net/http"
         "time"
 )
@@ -70,8 +71,8 @@ func (c *Client) SetEndpoint(endpoint string) {
 
 func (c *Client) FetchIssueDetails(issueID string) (*IssueDetails, error) {
         query := `
-                query GetIssue($id: String!) {
-                        issue(id: $id) {
+                query GetIssue($identifier: String!) {
+                        issue(identifier: $identifier) {
                                 id
                                 title
                                 branchName
@@ -83,7 +84,7 @@ func (c *Client) FetchIssueDetails(issueID string) (*IssueDetails, error) {
         request := GraphQLRequest{
                 Query: query,
                 Variables: map[string]interface{}{
-                        "id": issueID,
+                        "identifier": issueID,
                 },
         }
 
@@ -98,7 +99,7 @@ func (c *Client) FetchIssueDetails(issueID string) (*IssueDetails, error) {
         }
 
         req.Header.Set("Content-Type", "application/json")
-        req.Header.Set("Authorization", "Bearer "+c.apiKey)
+        req.Header.Set("Authorization", c.apiKey)
 
         resp, err := c.client.Do(req)
         if err != nil {
@@ -107,7 +108,8 @@ func (c *Client) FetchIssueDetails(issueID string) (*IssueDetails, error) {
         defer resp.Body.Close()
 
         if resp.StatusCode != http.StatusOK {
-                return nil, fmt.Errorf("Linear API returned status %d", resp.StatusCode)
+                body, _ := io.ReadAll(resp.Body)
+                return nil, fmt.Errorf("Linear API returned status %d: %s", resp.StatusCode, string(body))
         }
 
         var response GraphQLResponse
@@ -122,7 +124,7 @@ func (c *Client) FetchIssueDetails(issueID string) (*IssueDetails, error) {
         return &response.Data.Issue, nil
 }
 
-func (c *Client) MarkIssueInProgress(issueID string) error {
+func (c *Client) MarkIssueInProgress(issue *IssueDetails) error {
         stateID, err := c.getInProgressStateID()
         if err != nil {
                 return fmt.Errorf("failed to get In Progress state ID: %w", err)
@@ -139,7 +141,7 @@ func (c *Client) MarkIssueInProgress(issueID string) error {
         request := GraphQLRequest{
                 Query: mutation,
                 Variables: map[string]interface{}{
-                        "id":      issueID,
+                        "id":      issue.ID,
                         "stateId": stateID,
                 },
         }
@@ -155,7 +157,7 @@ func (c *Client) MarkIssueInProgress(issueID string) error {
         }
 
         req.Header.Set("Content-Type", "application/json")
-        req.Header.Set("Authorization", "Bearer "+c.apiKey)
+        req.Header.Set("Authorization", c.apiKey)
 
         resp, err := c.client.Do(req)
         if err != nil {
@@ -164,7 +166,8 @@ func (c *Client) MarkIssueInProgress(issueID string) error {
         defer resp.Body.Close()
 
         if resp.StatusCode != http.StatusOK {
-                return fmt.Errorf("Linear API returned status %d", resp.StatusCode)
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("Linear API returned status %d: %s", resp.StatusCode, string(body))
         }
 
         var response IssueUpdateResponse
@@ -212,7 +215,7 @@ func (c *Client) getInProgressStateID() (string, error) {
         }
 
         req.Header.Set("Content-Type", "application/json")
-        req.Header.Set("Authorization", "Bearer "+c.apiKey)
+        req.Header.Set("Authorization", c.apiKey)
 
         resp, err := c.client.Do(req)
         if err != nil {
@@ -221,7 +224,8 @@ func (c *Client) getInProgressStateID() (string, error) {
         defer resp.Body.Close()
 
         if resp.StatusCode != http.StatusOK {
-                return "", fmt.Errorf("Linear API returned status %d", resp.StatusCode)
+                body, _ := io.ReadAll(resp.Body)
+                return "", fmt.Errorf("Linear API returned status %d: %s", resp.StatusCode, string(body))
         }
 
         var response struct {

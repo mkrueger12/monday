@@ -100,7 +100,7 @@ func (app *Application) processIssue(issueID string, cfg *config.AppConfig, line
         }
 
         log.Printf("[%s] Marking issue as In Progress...", issueID)
-        if err := linearClient.MarkIssueInProgress(issueID); err != nil {
+        if err := linearClient.MarkIssueInProgress(issue); err != nil {
                 return fmt.Errorf("failed to mark issue as in progress: %w", err)
         }
 
