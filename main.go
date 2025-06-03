@@ -110,6 +110,11 @@ func (app *Application) processIssue(issueID string, cfg *config.AppConfig, line
                 return fmt.Errorf("failed to create worktree: %w", err)
         }
 
+        log.Printf("[%s] Creating feature file...", issueID)
+        if err := gitops.CreateFeatureFile(worktreePath, issue.Title, issue.Description); err != nil {
+                return fmt.Errorf("failed to create feature file: %w", err)
+        }
+
         if !app.DryRun {
                 log.Printf("[%s] Launching Friday in Terminal...", issueID)
                 if err := macosRunner.LaunchFridayInMacOSTerminal(worktreePath, issue.Title); err != nil {

@@ -134,3 +134,55 @@ func TestSanitizeBranchName(t *testing.T) {
                 })
         }
 }
+
+func TestCreateFeatureFile_Success(t *testing.T) {
+        tempDir := t.TempDir()
+        worktreePath := filepath.Join(tempDir, "test-worktree")
+        err := os.MkdirAll(worktreePath, 0755)
+        require.NoError(t, err)
+
+        issueTitle := "Fix authentication bug"
+        issueDescription := "This is a detailed description of the authentication bug that needs to be fixed.\n\nSteps to reproduce:\n1. Login with invalid credentials\n2. Check error handling"
+
+        err = CreateFeatureFile(worktreePath, issueTitle, issueDescription)
+        require.NoError(t, err)
+
+        featureFilePath := filepath.Join(worktreePath, "_feature.md")
+        assert.FileExists(t, featureFilePath)
+
+        content, err := os.ReadFile(featureFilePath)
+        require.NoError(t, err)
+
+        expectedContent := "# Fix authentication bug\n\nThis is a detailed description of the authentication bug that needs to be fixed.\n\nSteps to reproduce:\n1. Login with invalid credentials\n2. Check error handling\n"
+        assert.Equal(t, expectedContent, string(content))
+}
+
+func TestCreateFeatureFile_EmptyDescription(t *testing.T) {
+        tempDir := t.TempDir()
+        worktreePath := filepath.Join(tempDir, "test-worktree")
+        err := os.MkdirAll(worktreePath, 0755)
+        require.NoError(t, err)
+
+        issueTitle := "Simple bug fix"
+        issueDescription := ""
+
+        err = CreateFeatureFile(worktreePath, issueTitle, issueDescription)
+        require.NoError(t, err)
+
+        featureFilePath := filepath.Join(worktreePath, "_feature.md")
+        assert.FileExists(t, featureFilePath)
+
+        content, err := os.ReadFile(featureFilePath)
+        require.NoError(t, err)
+
+        expectedContent := "# Simple bug fix\n\n"
+        assert.Equal(t, expectedContent, string(content))
+}
+
+func TestCreateFeatureFile_InvalidPath(t *testing.T) {
+        invalidPath := "/nonexistent/path/that/does/not/exist"
+        
+        err := CreateFeatureFile(invalidPath, "Test Title", "Test Description")
+        assert.Error(t, err)
+        assert.Contains(t, err.Error(), "failed to create _feature.md file")
+}

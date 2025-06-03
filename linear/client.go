@@ -15,10 +15,11 @@ import (
 const DefaultLinearEndpoint = "https://api.linear.app/graphql"
 
 type IssueDetails struct {
-        ID         string `json:"id"`
-        Title      string `json:"title"`
-        BranchName string `json:"branchName"`
-        URL        string `json:"url"`
+        ID          string `json:"id"`
+        Title       string `json:"title"`
+        Description string `json:"description"`
+        BranchName  string `json:"branchName"`
+        URL         string `json:"url"`
 }
 
 type GraphQLRequest struct {
@@ -91,6 +92,7 @@ func (c *Client) FetchIssueDetails(issueID string) (*IssueDetails, error) {
                                 nodes {
                                         id
                                         title
+                                        description
                                         branchName
                                         url
                                 }

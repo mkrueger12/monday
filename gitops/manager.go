@@ -100,3 +100,18 @@ func hasRemote(repoPath string) bool {
         output, err := cmd.Output()
         return err == nil && len(strings.TrimSpace(string(output))) > 0
 }
+
+func CreateFeatureFile(worktreePath, issueTitle, issueDescription string) error {
+        featureFilePath := filepath.Join(worktreePath, "_feature.md")
+        
+        content := fmt.Sprintf("# %s\n\n", issueTitle)
+        if issueDescription != "" {
+                content += issueDescription + "\n"
+        }
+        
+        if err := os.WriteFile(featureFilePath, []byte(content), 0644); err != nil {
+                return fmt.Errorf("failed to create _feature.md file: %w", err)
+        }
+        
+        return nil
+}

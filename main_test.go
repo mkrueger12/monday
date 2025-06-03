@@ -70,10 +70,11 @@ func setupMockLinearServer(t *testing.T) *httptest.Server {
                                 Data: linear.GraphQLData{
                                         Issues: linear.IssuesConnection{
                                                 Nodes: []linear.IssueDetails{{
-                                                        ID:         issueID,
-                                                        Title:      "Test Issue " + issueID,
-                                                        BranchName: issueID + "-test-issue",
-                                                        URL:        "https://linear.app/team/issue/" + issueID,
+                                                        ID:          issueID,
+                                                        Title:       "Fix authentication bug",
+                                                        Description: "This is a detailed description of the authentication bug that needs to be fixed.",
+                                                        BranchName:  issueID + "-test-issue",
+                                                        URL:         "https://linear.app/team/issue/" + issueID,
                                                 }},
                                         },
                                 },
@@ -132,6 +133,16 @@ func TestRunApplication_SingleIssue_Success(t *testing.T) {
         info, err := os.Stat(worktreePath)
         require.NoError(t, err)
         assert.True(t, info.IsDir())
+
+        // Verify _feature.md file was created with issue description
+        featureFilePath := filepath.Join(worktreePath, "_feature.md")
+        assert.FileExists(t, featureFilePath)
+
+        content, err := os.ReadFile(featureFilePath)
+        require.NoError(t, err)
+
+        expectedContent := "# Fix authentication bug\n\nThis is a detailed description of the authentication bug that needs to be fixed.\n"
+        assert.Equal(t, expectedContent, string(content))
 }
 
 func TestRunApplication_MultipleIssues_Success(t *testing.T) {

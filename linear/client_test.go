@@ -12,10 +12,11 @@ import (
 
 func TestFetchIssueDetails_Success(t *testing.T) {
         expectedIssue := IssueDetails{
-                ID:         "ISSUE-123",
-                Title:      "Fix authentication bug",
-                BranchName: "issue-123-fix-authentication-bug",
-                URL:        "https://linear.app/team/issue/ISSUE-123",
+                ID:          "ISSUE-123",
+                Title:       "Fix authentication bug",
+                Description: "This is a detailed description of the authentication bug that needs to be fixed.",
+                BranchName:  "issue-123-fix-authentication-bug",
+                URL:         "https://linear.app/team/issue/ISSUE-123",
         }
 
         server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
