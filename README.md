@@ -1,12 +1,6 @@
-Okay, let's update the Product Development Document to strongly emphasize a Test-Driven Development (TDD) approach. This means tests will be written *before* or *alongside* the implementation code for each component.
-
----
-
 **Product Development Document: "monday" CLI Tool (TDD Edition)**
 
-**Version:** 1.1 (TDD Focus)
-**Date:** October 27, 2023
-**Author/Requester:** [Your Name/Team]
+**Version:** 1.0
 
 **1. Overview**
 
