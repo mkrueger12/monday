@@ -6,6 +6,9 @@ import (
         "fmt"
         "io"
         "net/http"
+        "regexp"
+        "strconv"
+        "strings"
         "time"
 )
 
@@ -29,7 +32,11 @@ type GraphQLResponse struct {
 }
 
 type GraphQLData struct {
-        Issue IssueDetails `json:"issue"`
+        Issues IssuesConnection `json:"issues"`
+}
+
+type IssuesConnection struct {
+        Nodes []IssueDetails `json:"nodes"`
 }
 
 type GraphQLError struct {
@@ -70,13 +77,23 @@ func (c *Client) SetEndpoint(endpoint string) {
 }
 
 func (c *Client) FetchIssueDetails(issueID string) (*IssueDetails, error) {
+        teamKey, number, err := parseIssueIdentifier(issueID)
+        if err != nil {
+                return nil, fmt.Errorf("invalid issue identifier format: %w", err)
+        }
+
         query := `
-                query GetIssue($identifier: String!) {
-                        issue(identifier: $identifier) {
-                                id
-                                title
-                                branchName
-                                url
+                query GetIssue($teamKey: String!, $number: Float!) {
+                        issues(filter: {
+                                team: { key: { eq: $teamKey } },
+                                number: { eq: $number }
+                        }, first: 1) {
+                                nodes {
+                                        id
+                                        title
+                                        branchName
+                                        url
+                                }
                         }
                 }
         `
@@ -84,7 +101,8 @@ func (c *Client) FetchIssueDetails(issueID string) (*IssueDetails, error) {
         request := GraphQLRequest{
                 Query: query,
                 Variables: map[string]interface{}{
-                        "identifier": issueID,
+                        "teamKey": teamKey,
+                        "number":  float64(number),
                 },
         }
 
@@ -121,7 +139,11 @@ func (c *Client) FetchIssueDetails(issueID string) (*IssueDetails, error) {
                 return nil, fmt.Errorf("GraphQL error: %s", response.Errors[0].Message)
         }
 
-        return &response.Data.Issue, nil
+        if len(response.Data.Issues.Nodes) == 0 {
+                return nil, fmt.Errorf("issue not found: %s", issueID)
+        }
+
+        return &response.Data.Issues.Nodes[0], nil
 }
 
 func (c *Client) MarkIssueInProgress(issue *IssueDetails) error {
@@ -256,4 +278,20 @@ func (c *Client) getInProgressStateID() (string, error) {
         }
 
         return "", fmt.Errorf("In Progress state not found")
+}
+
+func parseIssueIdentifier(identifier string) (string, int, error) {
+        re := regexp.MustCompile(`^([A-Z]+)-(\d+)$`)
+        matches := re.FindStringSubmatch(strings.ToUpper(identifier))
+        if len(matches) != 3 {
+                return "", 0, fmt.Errorf("issue identifier must be in format TEAM-NUMBER (e.g., DEL-163)")
+        }
+
+        teamKey := matches[1]
+        number, err := strconv.Atoi(matches[2])
+        if err != nil {
+                return "", 0, fmt.Errorf("invalid issue number: %s", matches[2])
+        }
+
+        return teamKey, number, nil
 }

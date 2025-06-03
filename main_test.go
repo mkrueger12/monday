@@ -2,6 +2,7 @@ package main
 
 import (
         "encoding/json"
+        "fmt"
         "net/http"
         "net/http/httptest"
         "os"
@@ -59,33 +60,35 @@ func setupMockLinearServer(t *testing.T) *httptest.Server {
                 var req linear.GraphQLRequest
                 json.NewDecoder(r.Body).Decode(&req)
 
-                if req.Variables["id"] != nil {
-                        issueID := req.Variables["id"].(string)
+                if req.Variables["teamKey"] != nil && req.Variables["number"] != nil {
+                        teamKey := req.Variables["teamKey"].(string)
+                        number := req.Variables["number"].(float64)
+                        issueID := teamKey + "-" + fmt.Sprintf("%.0f", number)
                         
-                        if req.Query != "" && req.Query[0:5] == "query" {
-                                // Handle issue details query
-                                response := linear.GraphQLResponse{
-                                        Data: linear.GraphQLData{
-                                                Issue: linear.IssueDetails{
+                        // Handle issue details query
+                        response := linear.GraphQLResponse{
+                                Data: linear.GraphQLData{
+                                        Issues: linear.IssuesConnection{
+                                                Nodes: []linear.IssueDetails{{
                                                         ID:         issueID,
                                                         Title:      "Test Issue " + issueID,
                                                         BranchName: issueID + "-test-issue",
                                                         URL:        "https://linear.app/team/issue/" + issueID,
-                                                },
+                                                }},
                                         },
-                                }
-                                json.NewEncoder(w).Encode(response)
-                        } else {
-                                // Handle issue update mutation
-                                response := map[string]interface{}{
-                                        "data": map[string]interface{}{
-                                                "issueUpdate": map[string]interface{}{
-                                                        "success": true,
-                                                },
-                                        },
-                                }
-                                json.NewEncoder(w).Encode(response)
+                                },
                         }
+                        json.NewEncoder(w).Encode(response)
+                } else if req.Variables["id"] != nil {
+                        // Handle issue update mutation
+                        response := map[string]interface{}{
+                                "data": map[string]interface{}{
+                                        "issueUpdate": map[string]interface{}{
+                                                "success": true,
+                                        },
+                                },
+                        }
+                        json.NewEncoder(w).Encode(response)
                 } else {
                         // Handle workflow states query
                         response := map[string]interface{}{
@@ -118,14 +121,14 @@ func TestRunApplication_SingleIssue_Success(t *testing.T) {
         err := app.Run([]string{
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
-                "ISSUE-123",
+                "DEL-123",
                 repoPath,
         })
 
         assert.NoError(t, err)
 
         // Verify worktree was created
-        worktreePath := filepath.Join(repoPath, "worktrees", "ISSUE-123")
+        worktreePath := filepath.Join(repoPath, "worktrees", "DEL-123")
         info, err := os.Stat(worktreePath)
         require.NoError(t, err)
         assert.True(t, info.IsDir())
@@ -143,14 +146,14 @@ func TestRunApplication_MultipleIssues_Success(t *testing.T) {
         err := app.Run([]string{
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
-                "ISSUE-123", "ISSUE-456",
+                "DEL-123", "DEL-456",
                 repoPath,
         })
 
         assert.NoError(t, err)
 
         // Verify both worktrees were created
-        for _, issueID := range []string{"ISSUE-123", "ISSUE-456"} {
+        for _, issueID := range []string{"DEL-123", "DEL-456"} {
                 worktreePath := filepath.Join(repoPath, "worktrees", issueID)
                 info, err := os.Stat(worktreePath)
                 require.NoError(t, err)
@@ -194,7 +197,7 @@ func TestRunApplication_InvalidRepo(t *testing.T) {
         err := app.Run([]string{
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
-                "ISSUE-123",
+                "DEL-123",
                 "/nonexistent/repo",
         })
 
@@ -210,7 +213,7 @@ func TestRunApplication_MissingAPIKey(t *testing.T) {
         }
 
         err := app.Run([]string{
-                "ISSUE-123",
+                "DEL-123",
                 repoPath,
         })
 
@@ -228,7 +231,7 @@ func TestRunApplication_ConcurrentProcessing(t *testing.T) {
         }
 
         // Test with multiple issues to verify concurrent processing
-        issues := []string{"ISSUE-1", "ISSUE-2", "ISSUE-3", "ISSUE-4", "ISSUE-5"}
+        issues := []string{"DEL-1", "DEL-2", "DEL-3", "DEL-4", "DEL-5"}
         args := []string{
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
@@ -258,17 +261,21 @@ func TestRunApplication_MarkIssueInProgress(t *testing.T) {
                 json.NewDecoder(r.Body).Decode(&req)
                 receivedQueries = append(receivedQueries, req)
 
-                if req.Variables["identifier"] != nil {
-                        issueID := req.Variables["identifier"].(string)
+                if req.Variables["teamKey"] != nil && req.Variables["number"] != nil {
+                        teamKey := req.Variables["teamKey"].(string)
+                        number := req.Variables["number"].(float64)
+                        issueID := teamKey + "-" + fmt.Sprintf("%.0f", number)
                         
                         // Handle issue details query
                         response := linear.GraphQLResponse{
                                 Data: linear.GraphQLData{
-                                        Issue: linear.IssueDetails{
-                                                ID:         "uuid-" + issueID,
-                                                Title:      "Test Issue " + issueID,
-                                                BranchName: issueID + "-test-issue",
-                                                URL:        "https://linear.app/team/issue/" + issueID,
+                                        Issues: linear.IssuesConnection{
+                                                Nodes: []linear.IssueDetails{{
+                                                        ID:         "uuid-" + issueID,
+                                                        Title:      "Test Issue " + issueID,
+                                                        BranchName: issueID + "-test-issue",
+                                                        URL:        "https://linear.app/team/issue/" + issueID,
+                                                }},
                                         },
                                 },
                         }
@@ -310,7 +317,7 @@ func TestRunApplication_MarkIssueInProgress(t *testing.T) {
         err := app.Run([]string{
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
-                "ISSUE-123",
+                "DEL-123",
                 repoPath,
         })
 
@@ -323,14 +330,15 @@ func TestRunApplication_MarkIssueInProgress(t *testing.T) {
         require.Len(t, receivedQueries, 3)
         
         // First call should be issue details
-        assert.Contains(t, receivedQueries[0].Query, "issue")
-        assert.Equal(t, "ISSUE-123", receivedQueries[0].Variables["identifier"])
+        assert.Contains(t, receivedQueries[0].Query, "issues")
+        assert.Equal(t, "DEL", receivedQueries[0].Variables["teamKey"])
+        assert.Equal(t, float64(123), receivedQueries[0].Variables["number"])
         
         // Second call should be workflow states
         assert.Contains(t, receivedQueries[1].Query, "workflowStates")
         
         // Third call should be issue update
         assert.Contains(t, receivedQueries[2].Query, "issueUpdate")
-        assert.Equal(t, "uuid-ISSUE-123", receivedQueries[2].Variables["id"])
+        assert.Equal(t, "uuid-DEL-123", receivedQueries[2].Variables["id"])
         assert.Equal(t, "state-in-progress", receivedQueries[2].Variables["stateId"])
 }

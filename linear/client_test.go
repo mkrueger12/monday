@@ -25,12 +25,16 @@ func TestFetchIssueDetails_Success(t *testing.T) {
 
                 var req GraphQLRequest
                 json.NewDecoder(r.Body).Decode(&req)
-                assert.Contains(t, req.Query, "identifier: $identifier")
-                assert.Equal(t, "ISSUE-123", req.Variables["identifier"])
+                assert.Contains(t, req.Query, "$teamKey")
+                assert.Contains(t, req.Query, "$number")
+                assert.Equal(t, "DEL", req.Variables["teamKey"])
+                assert.Equal(t, float64(123), req.Variables["number"])
 
                 response := GraphQLResponse{
                         Data: GraphQLData{
-                                Issue: expectedIssue,
+                                Issues: IssuesConnection{
+                                        Nodes: []IssueDetails{expectedIssue},
+                                },
                         },
                 }
                 json.NewEncoder(w).Encode(response)
@@ -40,7 +44,7 @@ func TestFetchIssueDetails_Success(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        issue, err := client.FetchIssueDetails("ISSUE-123")
+        issue, err := client.FetchIssueDetails("DEL-123")
         require.NoError(t, err)
         assert.Equal(t, expectedIssue, *issue)
 }
@@ -55,7 +59,7 @@ func TestFetchIssueDetails_HTTPError(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        _, err := client.FetchIssueDetails("NONEXISTENT")
+        _, err := client.FetchIssueDetails("DEL-999")
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "404")
 }
@@ -74,7 +78,7 @@ func TestFetchIssueDetails_GraphQLError(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        _, err := client.FetchIssueDetails("NONEXISTENT")
+        _, err := client.FetchIssueDetails("DEL-999")
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "Issue not found")
 }
@@ -88,7 +92,7 @@ func TestFetchIssueDetails_MalformedJSON(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        _, err := client.FetchIssueDetails("ISSUE-123")
+        _, err := client.FetchIssueDetails("DEL-123")
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "decode")
 }
@@ -97,7 +101,7 @@ func TestFetchIssueDetails_NetworkError(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = "http://nonexistent-server:12345"
 
-        _, err := client.FetchIssueDetails("ISSUE-123")
+        _, err := client.FetchIssueDetails("DEL-123")
         assert.Error(t, err)
 }
 
@@ -109,11 +113,13 @@ func TestGraphQLQuery_Structure(t *testing.T) {
                 
                 response := GraphQLResponse{
                         Data: GraphQLData{
-                                Issue: IssueDetails{
-                                        ID:         "ISSUE-123",
-                                        Title:      "Test Issue",
-                                        BranchName: "issue-123-test-issue",
-                                        URL:        "https://linear.app/team/issue/ISSUE-123",
+                                Issues: IssuesConnection{
+                                        Nodes: []IssueDetails{{
+                                                ID:         "ISSUE-123",
+                                                Title:      "Test Issue",
+                                                BranchName: "issue-123-test-issue",
+                                                URL:        "https://linear.app/team/issue/ISSUE-123",
+                                        }},
                                 },
                         },
                 }
@@ -124,16 +130,17 @@ func TestGraphQLQuery_Structure(t *testing.T) {
         client := NewClient("test-api-key")
         client.endpoint = server.URL
 
-        _, err := client.FetchIssueDetails("ISSUE-123")
+        _, err := client.FetchIssueDetails("DEL-123")
         require.NoError(t, err)
 
         assert.Contains(t, receivedQuery.Query, "query")
-        assert.Contains(t, receivedQuery.Query, "issue")
+        assert.Contains(t, receivedQuery.Query, "issues")
         assert.Contains(t, receivedQuery.Query, "id")
         assert.Contains(t, receivedQuery.Query, "title")
         assert.Contains(t, receivedQuery.Query, "branchName")
         assert.Contains(t, receivedQuery.Query, "url")
-        assert.Equal(t, "ISSUE-123", receivedQuery.Variables["identifier"])
+        assert.Equal(t, "DEL", receivedQuery.Variables["teamKey"])
+        assert.Equal(t, float64(123), receivedQuery.Variables["number"])
 }
 
 func TestMarkIssueInProgress_Success(t *testing.T) {
@@ -321,4 +328,70 @@ func TestMarkIssueInProgress_StateNotFound(t *testing.T) {
         err := client.MarkIssueInProgress(issue)
         assert.Error(t, err)
         assert.Contains(t, err.Error(), "In Progress state not found")
+}
+
+func TestFetchIssueDetails_NotFound(t *testing.T) {
+        server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                response := GraphQLResponse{
+                        Data: GraphQLData{
+                                Issues: IssuesConnection{
+                                        Nodes: []IssueDetails{},
+                                },
+                        },
+                }
+                json.NewEncoder(w).Encode(response)
+        }))
+        defer server.Close()
+
+        client := NewClient("test-api-key")
+        client.endpoint = server.URL
+
+        _, err := client.FetchIssueDetails("DEL-999")
+        assert.Error(t, err)
+        assert.Contains(t, err.Error(), "issue not found: DEL-999")
+}
+
+func TestParseIssueIdentifier_Success(t *testing.T) {
+        tests := []struct {
+                input       string
+                expectedKey string
+                expectedNum int
+        }{
+                {"DEL-123", "DEL", 123},
+                {"PROJ-456", "PROJ", 456},
+                {"ABC-1", "ABC", 1},
+                {"del-123", "DEL", 123}, // case insensitive
+        }
+
+        for _, test := range tests {
+                t.Run(test.input, func(t *testing.T) {
+                        key, num, err := parseIssueIdentifier(test.input)
+                        require.NoError(t, err)
+                        assert.Equal(t, test.expectedKey, key)
+                        assert.Equal(t, test.expectedNum, num)
+                })
+        }
+}
+
+func TestParseIssueIdentifier_Error(t *testing.T) {
+        tests := []struct {
+                input string
+                error string
+        }{
+                {"", "issue identifier must be in format TEAM-NUMBER"},
+                {"DEL", "issue identifier must be in format TEAM-NUMBER"},
+                {"123", "issue identifier must be in format TEAM-NUMBER"},
+                {"DEL-", "issue identifier must be in format TEAM-NUMBER"},
+                {"DEL-abc", "issue identifier must be in format TEAM-NUMBER"},
+                {"-123", "issue identifier must be in format TEAM-NUMBER"},
+                {"DEL_123", "issue identifier must be in format TEAM-NUMBER"},
+        }
+
+        for _, test := range tests {
+                t.Run(test.input, func(t *testing.T) {
+                        _, _, err := parseIssueIdentifier(test.input)
+                        assert.Error(t, err)
+                        assert.Contains(t, err.Error(), test.error)
+                })
+        }
 }
