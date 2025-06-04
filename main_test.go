@@ -115,8 +115,9 @@ func setupMockLinearServer(t *testing.T) *httptest.Server {
 }
 
 func TestRunApplication_SingleIssue_Success(t *testing.T) {
-        // Clean up any existing worktrees
-        os.RemoveAll("/tmp/monday-worktrees")
+        // Set up test worktree directory
+        testWorktreeRoot := filepath.Join(os.TempDir(), "monday-test-worktrees")
+        os.RemoveAll(testWorktreeRoot)
         
         repoPath := setupTestRepoForMain(t)
         server := setupMockLinearServer(t)
@@ -127,6 +128,7 @@ func TestRunApplication_SingleIssue_Success(t *testing.T) {
         }
 
         err := app.Run([]string{
+                "--worktree-root", testWorktreeRoot,
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
                 "DEL-123",
@@ -136,7 +138,7 @@ func TestRunApplication_SingleIssue_Success(t *testing.T) {
         assert.NoError(t, err)
 
         // Verify worktree was created
-        worktreePath := filepath.Join("/tmp/monday-worktrees", "DEL-123")
+        worktreePath := filepath.Join(testWorktreeRoot, "DEL-123")
         info, err := os.Stat(worktreePath)
         require.NoError(t, err)
         assert.True(t, info.IsDir())
@@ -153,8 +155,9 @@ func TestRunApplication_SingleIssue_Success(t *testing.T) {
 }
 
 func TestRunApplication_MultipleIssues_Success(t *testing.T) {
-        // Clean up any existing worktrees
-        os.RemoveAll("/tmp/monday-worktrees")
+        // Set up test worktree directory
+        testWorktreeRoot := filepath.Join(os.TempDir(), "monday-test-worktrees-multi")
+        os.RemoveAll(testWorktreeRoot)
         
         repoPath := setupTestRepoForMain(t)
         server := setupMockLinearServer(t)
@@ -165,6 +168,7 @@ func TestRunApplication_MultipleIssues_Success(t *testing.T) {
         }
 
         err := app.Run([]string{
+                "--worktree-root", testWorktreeRoot,
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
                 "DEL-123", "DEL-456",
@@ -175,7 +179,7 @@ func TestRunApplication_MultipleIssues_Success(t *testing.T) {
 
         // Verify both worktrees were created
         for _, issueID := range []string{"DEL-123", "DEL-456"} {
-                worktreePath := filepath.Join("/tmp/monday-worktrees", issueID)
+                worktreePath := filepath.Join(testWorktreeRoot, issueID)
                 info, err := os.Stat(worktreePath)
                 require.NoError(t, err)
                 assert.True(t, info.IsDir())
@@ -197,6 +201,7 @@ func TestRunApplication_LinearAPIError(t *testing.T) {
         }
 
         err := app.Run([]string{
+                "--worktree-root", "/tmp/test-worktrees",
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
                 "NONEXISTENT",
@@ -217,6 +222,7 @@ func TestRunApplication_InvalidRepo(t *testing.T) {
         }
 
         err := app.Run([]string{
+                "--worktree-root", "/tmp/test-worktrees",
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
                 "DEL-123",
@@ -224,7 +230,7 @@ func TestRunApplication_InvalidRepo(t *testing.T) {
         })
 
         assert.Error(t, err)
-        assert.Contains(t, err.Error(), "git directory not found")
+        assert.Contains(t, err.Error(), "not a git repository")
         assert.NotNil(t, err)
 }
 
@@ -236,6 +242,7 @@ func TestRunApplication_MissingAPIKey(t *testing.T) {
         }
 
         err := app.Run([]string{
+                "--worktree-root", "/tmp/test-worktrees",
                 "DEL-123",
                 repoPath,
         })
@@ -246,8 +253,9 @@ func TestRunApplication_MissingAPIKey(t *testing.T) {
 }
 
 func TestRunApplication_ConcurrentProcessing(t *testing.T) {
-        // Clean up any existing worktrees
-        os.RemoveAll("/tmp/monday-worktrees")
+        // Set up test worktree directory
+        testWorktreeRoot := filepath.Join(os.TempDir(), "monday-test-worktrees-concurrent")
+        os.RemoveAll(testWorktreeRoot)
         
         repoPath := setupTestRepoForMain(t)
         server := setupMockLinearServer(t)
@@ -260,6 +268,7 @@ func TestRunApplication_ConcurrentProcessing(t *testing.T) {
         // Test with multiple issues to verify concurrent processing
         issues := []string{"DEL-1", "DEL-2", "DEL-3", "DEL-4", "DEL-5"}
         args := []string{
+                "--worktree-root", testWorktreeRoot,
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
                 "-concurrency", "2",
@@ -272,7 +281,7 @@ func TestRunApplication_ConcurrentProcessing(t *testing.T) {
 
         // Verify all worktrees were created
         for _, issueID := range issues {
-                worktreePath := filepath.Join("/tmp/monday-worktrees", issueID)
+                worktreePath := filepath.Join(testWorktreeRoot, issueID)
                 info, err := os.Stat(worktreePath)
                 require.NoError(t, err)
                 assert.True(t, info.IsDir())
@@ -280,8 +289,9 @@ func TestRunApplication_ConcurrentProcessing(t *testing.T) {
 }
 
 func TestRunApplication_MarkIssueInProgress(t *testing.T) {
-        // Clean up any existing worktrees
-        os.RemoveAll("/tmp/monday-worktrees")
+        // Set up test worktree directory
+        testWorktreeRoot := filepath.Join(os.TempDir(), "monday-test-worktrees-progress")
+        os.RemoveAll(testWorktreeRoot)
         
         repoPath := setupTestRepoForMain(t)
         
@@ -345,6 +355,7 @@ func TestRunApplication_MarkIssueInProgress(t *testing.T) {
         }
 
         err := app.Run([]string{
+                "--worktree-root", testWorktreeRoot,
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
                 "DEL-123",
@@ -380,6 +391,7 @@ func TestRunApplication_CleanupMode(t *testing.T) {
         
         err := app.Run([]string{
                 "--cleanup",
+                "--worktree-root", "/tmp/test-cleanup-worktrees",
                 repoPath,
         })
         
@@ -393,6 +405,7 @@ func TestRunApplication_CleanupModeWithCustomDays(t *testing.T) {
         
         err := app.Run([]string{
                 "--cleanup",
+                "--worktree-root", "/tmp/test-cleanup-worktrees",
                 "--cleanup-days", "14",
                 repoPath,
         })
@@ -407,6 +420,7 @@ func TestRunApplication_CleanupModeDryRun(t *testing.T) {
         
         err := app.Run([]string{
                 "--cleanup",
+                "--worktree-root", "/tmp/test-cleanup-worktrees",
                 "--dry-run",
                 repoPath,
         })
@@ -415,8 +429,9 @@ func TestRunApplication_CleanupModeDryRun(t *testing.T) {
 }
 
 func TestRunApplication_AutomaticCleanup(t *testing.T) {
-        // Clean up any existing worktrees
-        os.RemoveAll("/tmp/monday-worktrees")
+        // Set up test worktree directory
+        testWorktreeRoot := filepath.Join(os.TempDir(), "monday-test-worktrees-auto-cleanup")
+        os.RemoveAll(testWorktreeRoot)
         
         repoPath := setupTestRepoForMain(t)
         
@@ -475,6 +490,7 @@ func TestRunApplication_AutomaticCleanup(t *testing.T) {
         }
 
         err := app.Run([]string{
+                "--worktree-root", testWorktreeRoot,
                 "-api-key", "test-key",
                 "-linear-endpoint", server.URL,
                 "--cleanup-days", "3",

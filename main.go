@@ -45,7 +45,7 @@ func (app *Application) Run(args []string) error {
                 return fmt.Errorf("failed to parse configuration: %w", err)
         }
 
-        worktreeRoot := "/tmp/monday-worktrees"
+        worktreeRoot := cfg.WorktreeRoot
 
         // Handle cleanup mode - clean up and exit
         if cfg.Cleanup {
