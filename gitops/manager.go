@@ -16,6 +16,8 @@ import (
 // It validates the repository, checks out the base branch, and pulls the latest changes
 // if a remote is configured. This ensures all worktrees start from the most recent code.
 func PrepareRepository(repoPath, baseBranch string) error {
+        fmt.Printf("[DEBUG] PrepareRepository called with repoPath: %s, baseBranch: %s\n", repoPath, baseBranch)
+        
         // Verify that the provided path is a valid git repository
         if err := validateGitRepository(repoPath); err != nil {
                 return fmt.Errorf("not a git repository: %w", err)
@@ -29,8 +31,9 @@ func PrepareRepository(repoPath, baseBranch string) error {
         // Switch to the base branch to ensure we're starting from the correct point
         cmd := exec.Command("git", "checkout", baseBranch)
         cmd.Dir = repoPath
-        if err := cmd.Run(); err != nil {
-                return fmt.Errorf("failed to checkout branch %s: %w", baseBranch, err)
+        fmt.Printf("[DEBUG] Running 'git checkout %s' in directory: %s\n", baseBranch, repoPath)
+        if output, err := cmd.CombinedOutput(); err != nil {
+                return fmt.Errorf("failed to checkout branch %s: %s (exit code: %w)", baseBranch, string(output), err)
         }
 
         // Pull latest changes if the repository has a remote configured
@@ -38,8 +41,8 @@ func PrepareRepository(repoPath, baseBranch string) error {
         if hasRemote(repoPath) {
                 cmd = exec.Command("git", "pull")
                 cmd.Dir = repoPath
-                if err := cmd.Run(); err != nil {
-                        return fmt.Errorf("failed to pull latest changes: %w", err)
+                if output, err := cmd.CombinedOutput(); err != nil {
+                        return fmt.Errorf("failed to pull latest changes: %s (exit code: %w)", string(output), err)
                 }
         }
 
@@ -51,6 +54,9 @@ func PrepareRepository(repoPath, baseBranch string) error {
 // outside the main repository. This allows multiple issues to be worked on simultaneously
 // without interfering with each other or cluttering the main repository.
 func CreateWorktreeForIssue(worktreeRoot, repoPath, issueID, baseBranch string) (string, error) {
+        fmt.Printf("[DEBUG] CreateWorktreeForIssue called with worktreeRoot: %s, repoPath: %s, issueID: %s, baseBranch: %s\n", 
+                worktreeRoot, repoPath, issueID, baseBranch)
+        
         // Validate that we're working with a git repository
         if err := validateGitRepository(repoPath); err != nil {
                 return "", fmt.Errorf("not a git repository: %w", err)
@@ -81,8 +87,10 @@ func CreateWorktreeForIssue(worktreeRoot, repoPath, issueID, baseBranch string) 
         // This creates an isolated working directory with its own branch
         cmd := exec.Command("git", "worktree", "add", "-b", branchName, worktreePath, baseBranch)
         cmd.Dir = repoPath
-        if err := cmd.Run(); err != nil {
-                return "", fmt.Errorf("failed to create worktree for issue %s: %w", issueID, err)
+        fmt.Printf("[DEBUG] Running 'git worktree add -b %s %s %s' in directory: %s\n", 
+                branchName, worktreePath, baseBranch, repoPath)
+        if output, err := cmd.CombinedOutput(); err != nil {
+                return "", fmt.Errorf("failed to create worktree for issue %s: %s (exit code: %w)", issueID, string(output), err)
         }
 
         return worktreePath, nil

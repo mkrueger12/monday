@@ -52,7 +52,6 @@ func setupTestRepoForMain(t *testing.T) string {
         cmd.Dir = tempDir
         require.NoError(t, cmd.Run())
 
-        // Create develop branch for testing
         cmd = exec.Command("git", "checkout", "-b", "develop")
         cmd.Dir = tempDir
         require.NoError(t, cmd.Run())

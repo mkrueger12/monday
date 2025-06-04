@@ -51,6 +51,7 @@ func (app *Application) Run(args []string) error {
         }
 
         log.Printf("Processing %d issues with concurrency %d", len(cfg.IssueIDs), cfg.Concurrency)
+        log.Printf("Using repository path: %s", cfg.GitRepoPath)
 
         // Ensure the git repository is ready and on the correct base branch
         if err := gitops.PrepareRepository(cfg.GitRepoPath, cfg.BaseBranch); err != nil {
@@ -134,7 +135,7 @@ func (app *Application) processIssue(issueID string, cfg *config.AppConfig, line
         }
 
         // Step 3: Create an isolated git worktree for this issue
-        log.Printf("[%s] Creating worktree...", issueID)
+        log.Printf("[%s] Creating worktree at", issueID)
         worktreeRoot := "/tmp/monday-worktrees"
         worktreePath, err := gitops.CreateWorktreeForIssue(worktreeRoot, cfg.GitRepoPath, issueID, cfg.BaseBranch)
         if err != nil {
