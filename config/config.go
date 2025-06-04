@@ -27,6 +27,10 @@ type AppConfig struct {
         DryRun          bool
         // BaseBranch is the git branch to use as the base for new worktree branches (default: "develop")
         BaseBranch      string
+        // Cleanup indicates whether to run cleanup mode and exit (no issue processing)
+        Cleanup         bool
+        // CleanupDays is the number of days to retain worktrees before cleanup (default: 7)
+        CleanupDays     int
 }
 
 // ParseConfig parses configuration from the default command-line arguments (os.Args[1:]).
@@ -46,6 +50,8 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         var linearEndpoint string
         var dryRun bool
         var baseBranch string
+        var cleanup bool
+        var cleanupDays int
 
         // Create a new flag set for parsing monday CLI arguments
         fs := flag.NewFlagSet("monday", flag.ContinueOnError)
@@ -54,6 +60,8 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         fs.StringVar(&linearEndpoint, "linear-endpoint", "", "Linear API endpoint (for testing)")
         fs.BoolVar(&dryRun, "dry-run", false, "Don't actually launch Terminal")
         fs.StringVar(&baseBranch, "base-branch", "develop", "Git base branch for new worktrees")
+        fs.BoolVar(&cleanup, "cleanup", false, "Run cleanup of old worktrees and exit")
+        fs.IntVar(&cleanupDays, "cleanup-days", 7, "Number of days to retain worktrees")
         
         // Parse the provided arguments
         err := fs.Parse(args)
@@ -63,6 +71,35 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
 
         // Extract non-flag arguments (issue IDs and git repo path)
         remainingArgs := fs.Args()
+        
+        // For cleanup mode, only git repo path is required
+        if cleanup {
+                if len(remainingArgs) != 1 {
+                        return nil, fmt.Errorf("usage: monday --cleanup [flags] <git_repo_path>")
+                }
+                gitRepoPath := remainingArgs[0]
+                issueIDs := []string{} // Empty for cleanup mode
+                
+                // Use CLI flag value or fall back to environment variable
+                linearAPIKey := apiKey
+                if linearAPIKey == "" {
+                        linearAPIKey = os.Getenv("LINEAR_API_KEY")
+                }
+                
+                return &AppConfig{
+                        IssueIDs:       issueIDs,
+                        GitRepoPath:    gitRepoPath,
+                        LinearAPIKey:   linearAPIKey,
+                        LinearEndpoint: linearEndpoint,
+                        Concurrency:    concurrency,
+                        DryRun:         dryRun,
+                        BaseBranch:     baseBranch,
+                        Cleanup:        cleanup,
+                        CleanupDays:    cleanupDays,
+                }, nil
+        }
+        
+        // For normal mode, require at least one issue ID and git repo path
         if len(remainingArgs) < 2 {
                 return nil, fmt.Errorf("usage: monday [flags] <issue_id_1> [issue_id_2 ...] <git_repo_path>")
         }
@@ -92,5 +129,7 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
                 Concurrency:    concurrency,
                 DryRun:         dryRun,
                 BaseBranch:     baseBranch,
+                Cleanup:        cleanup,
+                CleanupDays:    cleanupDays,
         }, nil
 }

@@ -224,7 +224,7 @@ func TestRunApplication_InvalidRepo(t *testing.T) {
         })
 
         assert.Error(t, err)
-        assert.Contains(t, err.Error(), "not a git repository")
+        assert.Contains(t, err.Error(), "git directory not found")
         assert.NotNil(t, err)
 }
 
@@ -371,4 +371,116 @@ func TestRunApplication_MarkIssueInProgress(t *testing.T) {
         assert.Contains(t, receivedQueries[2].Query, "issueUpdate")
         assert.Equal(t, "uuid-DEL-123", receivedQueries[2].Variables["id"])
         assert.Equal(t, "state-in-progress", receivedQueries[2].Variables["stateId"])
+}
+
+func TestRunApplication_CleanupMode(t *testing.T) {
+        repoPath := setupTestRepoForMain(t)
+        
+        app := &Application{}
+        
+        err := app.Run([]string{
+                "--cleanup",
+                repoPath,
+        })
+        
+        assert.NoError(t, err)
+}
+
+func TestRunApplication_CleanupModeWithCustomDays(t *testing.T) {
+        repoPath := setupTestRepoForMain(t)
+        
+        app := &Application{}
+        
+        err := app.Run([]string{
+                "--cleanup",
+                "--cleanup-days", "14",
+                repoPath,
+        })
+        
+        assert.NoError(t, err)
+}
+
+func TestRunApplication_CleanupModeDryRun(t *testing.T) {
+        repoPath := setupTestRepoForMain(t)
+        
+        app := &Application{}
+        
+        err := app.Run([]string{
+                "--cleanup",
+                "--dry-run",
+                repoPath,
+        })
+        
+        assert.NoError(t, err)
+}
+
+func TestRunApplication_AutomaticCleanup(t *testing.T) {
+        // Clean up any existing worktrees
+        os.RemoveAll("/tmp/monday-worktrees")
+        
+        repoPath := setupTestRepoForMain(t)
+        
+        server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                var req linear.GraphQLRequest
+                json.NewDecoder(r.Body).Decode(&req)
+
+                if req.Variables["teamKey"] != nil && req.Variables["number"] != nil {
+                        // Handle issue details query
+                        response := linear.GraphQLResponse{
+                                Data: linear.GraphQLData{
+                                        Issues: linear.IssuesConnection{
+                                                Nodes: []linear.IssueDetails{{
+                                                        ID:         "uuid-DEL-123",
+                                                        Title:      "Test Issue DEL-123",
+                                                        BranchName: "DEL-123-test-issue",
+                                                        URL:        "https://linear.app/team/issue/DEL-123",
+                                                        Description: "Test description",
+                                                }},
+                                        },
+                                },
+                        }
+                        json.NewEncoder(w).Encode(response)
+                } else if req.Variables["id"] != nil {
+                        // Handle issue update mutation
+                        response := map[string]interface{}{
+                                "data": map[string]interface{}{
+                                        "issueUpdate": map[string]interface{}{
+                                                "success": true,
+                                        },
+                                },
+                        }
+                        json.NewEncoder(w).Encode(response)
+                } else {
+                        // Handle workflow states query
+                        response := map[string]interface{}{
+                                "data": map[string]interface{}{
+                                        "workflowStates": map[string]interface{}{
+                                                "nodes": []map[string]interface{}{
+                                                        {
+                                                                "id":   "state-in-progress",
+                                                                "name": "In Progress",
+                                                                "type": "started",
+                                                        },
+                                                },
+                                        },
+                                },
+                        }
+                        json.NewEncoder(w).Encode(response)
+                }
+        }))
+        defer server.Close()
+
+        app := &Application{
+                DryRun: true,
+        }
+
+        err := app.Run([]string{
+                "-api-key", "test-key",
+                "-linear-endpoint", server.URL,
+                "--cleanup-days", "3",
+                "DEL-123",
+                repoPath,
+        })
+
+        assert.NoError(t, err)
 }

@@ -45,9 +45,23 @@ func (app *Application) Run(args []string) error {
                 return fmt.Errorf("failed to parse configuration: %w", err)
         }
 
-        // Validate that Linear API key is provided (required for all operations)
+        worktreeRoot := "/tmp/monday-worktrees"
+
+        // Handle cleanup mode - clean up and exit
+        if cfg.Cleanup {
+                log.Printf("Running cleanup mode: removing worktrees older than %d days", cfg.CleanupDays)
+                return gitops.CleanWorktrees(worktreeRoot, cfg.GitRepoPath, cfg.CleanupDays, cfg.DryRun)
+        }
+
+        // Validate that Linear API key is provided (required for issue processing)
         if cfg.LinearAPIKey == "" {
                 return fmt.Errorf("Linear API key is required (set LINEAR_API_KEY env var or use -api-key flag)")
+        }
+
+        // Always run automatic cleanup before processing issues
+        log.Printf("Running automatic cleanup: removing worktrees older than %d days", cfg.CleanupDays)
+        if err := gitops.CleanWorktrees(worktreeRoot, cfg.GitRepoPath, cfg.CleanupDays, cfg.DryRun); err != nil {
+                return fmt.Errorf("automatic cleanup failed: %w", err)
         }
 
         log.Printf("Processing %d issues with concurrency %d", len(cfg.IssueIDs), cfg.Concurrency)
@@ -84,7 +98,7 @@ func (app *Application) Run(args []string) error {
         for _, issueID := range cfg.IssueIDs {
                 issueID := issueID // capture loop variable to avoid closure issues
                 g.Go(func() error {
-                        if err := app.processIssue(issueID, cfg, linearClient, macosRunner); err != nil {
+                        if err := app.processIssue(issueID, cfg, linearClient, macosRunner, worktreeRoot); err != nil {
                                 log.Printf("[%s] Error: %v", issueID, err)
                                 mu.Lock()
                                 errorCount++
@@ -120,7 +134,7 @@ func (app *Application) Run(args []string) error {
 // It fetches issue details, marks the issue as "In Progress", creates a git worktree,
 // creates a feature file with issue context, and launches Friday CLI in Terminal.
 // This function is designed to be called concurrently for multiple issues.
-func (app *Application) processIssue(issueID string, cfg *config.AppConfig, linearClient *linear.Client, macosRunner *runner.MacOSRunner) error {
+func (app *Application) processIssue(issueID string, cfg *config.AppConfig, linearClient *linear.Client, macosRunner *runner.MacOSRunner, worktreeRoot string) error {
         // Step 1: Fetch detailed information about the Linear issue
         log.Printf("[%s] Fetching issue details...", issueID)
         issue, err := linearClient.FetchIssueDetails(issueID)
@@ -136,7 +150,6 @@ func (app *Application) processIssue(issueID string, cfg *config.AppConfig, line
 
         // Step 3: Create an isolated git worktree for this issue
         log.Printf("[%s] Creating worktree at", issueID)
-        worktreeRoot := "/tmp/monday-worktrees"
         worktreePath, err := gitops.CreateWorktreeForIssue(worktreeRoot, cfg.GitRepoPath, issueID, cfg.BaseBranch)
         if err != nil {
                 return fmt.Errorf("failed to create worktree: %w", err)

@@ -24,6 +24,8 @@ func TestParseConfig_Success(t *testing.T) {
                                 Concurrency:    3, // default
                                 DryRun:         false,
                                 BaseBranch:     "develop", // default
+                                Cleanup:        false, // default
+                                CleanupDays:    7, // default
                         },
                 },
                 {
@@ -36,6 +38,8 @@ func TestParseConfig_Success(t *testing.T) {
                                 Concurrency:    3, // default
                                 DryRun:         false,
                                 BaseBranch:     "develop", // default
+                                Cleanup:        false, // default
+                                CleanupDays:    7, // default
                         },
                 },
                 {
@@ -48,6 +52,8 @@ func TestParseConfig_Success(t *testing.T) {
                                 Concurrency:    5,
                                 DryRun:         false,
                                 BaseBranch:     "develop", // default
+                                Cleanup:        false, // default
+                                CleanupDays:    7, // default
                         },
                 },
                 {
@@ -60,6 +66,50 @@ func TestParseConfig_Success(t *testing.T) {
                                 Concurrency:    3, // default
                                 DryRun:         false,
                                 BaseBranch:     "develop",
+                                Cleanup:        false, // default
+                                CleanupDays:    7, // default
+                        },
+                },
+                {
+                        name: "cleanup mode",
+                        args: []string{"monday", "--cleanup", "/path/to/repo"},
+                        expected: &AppConfig{
+                                IssueIDs:       []string{},
+                                GitRepoPath:    "/path/to/repo",
+                                LinearEndpoint: "",
+                                Concurrency:    3, // default
+                                DryRun:         false,
+                                BaseBranch:     "develop", // default
+                                Cleanup:        true,
+                                CleanupDays:    7, // default
+                        },
+                },
+                {
+                        name: "cleanup mode with custom days",
+                        args: []string{"monday", "--cleanup", "--cleanup-days", "14", "/path/to/repo"},
+                        expected: &AppConfig{
+                                IssueIDs:       []string{},
+                                GitRepoPath:    "/path/to/repo",
+                                LinearEndpoint: "",
+                                Concurrency:    3, // default
+                                DryRun:         false,
+                                BaseBranch:     "develop", // default
+                                Cleanup:        true,
+                                CleanupDays:    14,
+                        },
+                },
+                {
+                        name: "normal mode with custom cleanup days",
+                        args: []string{"monday", "--cleanup-days", "3", "ISSUE-123", "/path/to/repo"},
+                        expected: &AppConfig{
+                                IssueIDs:       []string{"ISSUE-123"},
+                                GitRepoPath:    "/path/to/repo",
+                                LinearEndpoint: "",
+                                Concurrency:    3, // default
+                                DryRun:         false,
+                                BaseBranch:     "develop", // default
+                                Cleanup:        false,
+                                CleanupDays:    3,
                         },
                 },
         }
@@ -89,6 +139,14 @@ func TestParseConfig_Errors(t *testing.T) {
                 {
                         name: "invalid concurrency",
                         args: []string{"monday", "-concurrency", "invalid", "ISSUE-123", "/path/to/repo"},
+                },
+                {
+                        name: "cleanup mode with no repo path",
+                        args: []string{"monday", "--cleanup"},
+                },
+                {
+                        name: "cleanup mode with issue IDs",
+                        args: []string{"monday", "--cleanup", "ISSUE-123", "/path/to/repo"},
                 },
         }
 
