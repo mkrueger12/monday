@@ -167,3 +167,16 @@ monday/
 ---
 
 This TDD-focused document guides the developer to build the application test by test, ensuring each piece of functionality is verified before moving on. This approach generally leads to more robust, maintainable, and well-understood code.
+
+
+## Option 1: Direct Copy to PATH (Simplest)
+```bash
+# Copy the binary to a directory in your PATH
+sudo cp /Users/max/code/monday/bin/monday /usr/local/bin/monday
+
+# Make it executable (if needed)
+sudo chmod +x /usr/local/bin/monday
+
+# Verify installation
+monday --help
+```
