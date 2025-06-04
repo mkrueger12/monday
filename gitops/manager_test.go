@@ -124,6 +124,36 @@ func TestCreateWorktreeForIssue_InvalidBaseBranch(t *testing.T) {
         assert.Empty(t, worktreePath)
 }
 
+func TestCreateWorktreeForIssue_ExistingBranch(t *testing.T) {
+        repoPath := setupTestRepo(t)
+        worktreeRoot := t.TempDir()
+
+        // Create a branch first
+        cmd := exec.Command("git", "checkout", "-b", "ISSUE-456")
+        cmd.Dir = repoPath
+        require.NoError(t, cmd.Run())
+
+        // Switch back to main
+        cmd = exec.Command("git", "checkout", "main")
+        cmd.Dir = repoPath
+        require.NoError(t, cmd.Run())
+
+        // Now create worktree using the existing branch
+        worktreePath, err := CreateWorktreeForIssue(worktreeRoot, repoPath, "ISSUE-456", "main")
+        require.NoError(t, err)
+
+        expectedPath := filepath.Join(worktreeRoot, "ISSUE-456")
+        assert.Equal(t, expectedPath, worktreePath)
+
+        info, err := os.Stat(worktreePath)
+        require.NoError(t, err)
+        assert.True(t, info.IsDir())
+
+        gitDir := filepath.Join(worktreePath, ".git")
+        _, err = os.Stat(gitDir)
+        assert.NoError(t, err)
+}
+
 func TestSanitizeBranchName(t *testing.T) {
         tests := []struct {
                 input    string

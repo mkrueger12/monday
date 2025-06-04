@@ -83,12 +83,21 @@ func CreateWorktreeForIssue(worktreeRoot, repoPath, issueID, baseBranch string) 
                 return "", fmt.Errorf("failed to create worktree root directory: %w", err)
         }
 
-        // Create the git worktree with a new branch based on the base branch
-        // This creates an isolated working directory with its own branch
-        cmd := exec.Command("git", "worktree", "add", "-b", branchName, worktreePath, baseBranch)
+        // Create the git worktree, handling existing branches appropriately
+        var cmd *exec.Cmd
+        if branchExists(repoPath, branchName) {
+                // Branch already exists, use it without creating a new one
+                cmd = exec.Command("git", "worktree", "add", worktreePath, branchName)
+                fmt.Printf("[DEBUG] Running 'git worktree add %s %s' (using existing branch) in directory: %s\n", 
+                        worktreePath, branchName, repoPath)
+        } else {
+                // Branch doesn't exist, create a new one based on the base branch
+                cmd = exec.Command("git", "worktree", "add", "-b", branchName, worktreePath, baseBranch)
+                fmt.Printf("[DEBUG] Running 'git worktree add -b %s %s %s' (creating new branch) in directory: %s\n", 
+                        branchName, worktreePath, baseBranch, repoPath)
+        }
+        
         cmd.Dir = repoPath
-        fmt.Printf("[DEBUG] Running 'git worktree add -b %s %s %s' in directory: %s\n", 
-                branchName, worktreePath, baseBranch, repoPath)
         if output, err := cmd.CombinedOutput(); err != nil {
                 return "", fmt.Errorf("failed to create worktree for issue %s: %s (exit code: %w)", issueID, string(output), err)
         }
