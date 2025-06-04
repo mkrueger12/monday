@@ -17,6 +17,8 @@ type AppConfig struct {
         IssueIDs        []string
         // GitRepoPath is the absolute path to the git repository where worktrees will be created
         GitRepoPath     string
+        // WorktreeRoot is the root directory where git worktrees will be stored
+        WorktreeRoot    string
         // LinearAPIKey is the authentication token for Linear API access
         LinearAPIKey    string
         // LinearEndpoint allows overriding the Linear API endpoint (primarily for testing)
@@ -52,6 +54,7 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         var baseBranch string
         var cleanup bool
         var cleanupDays int
+        var worktreeRoot string
 
         // Create a new flag set for parsing monday CLI arguments
         fs := flag.NewFlagSet("monday", flag.ContinueOnError)
@@ -62,11 +65,18 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         fs.StringVar(&baseBranch, "base-branch", "develop", "Git base branch for new worktrees")
         fs.BoolVar(&cleanup, "cleanup", false, "Run cleanup of old worktrees and exit")
         fs.IntVar(&cleanupDays, "cleanup-days", 7, "Number of days to retain worktrees")
+        fs.StringVar(&worktreeRoot, "worktree-root", "", "Root directory for git worktrees (required)")
+        fs.StringVar(&worktreeRoot, "w", "", "Shorthand for --worktree-root")
         
         // Parse the provided arguments
         err := fs.Parse(args)
         if err != nil {
                 return nil, err
+        }
+
+        // Validate that worktree-root is provided (required for all modes)
+        if worktreeRoot == "" {
+                return nil, fmt.Errorf("missing required --worktree-root argument")
         }
 
         // Extract non-flag arguments (issue IDs and git repo path)
@@ -75,7 +85,7 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         // For cleanup mode, only git repo path is required
         if cleanup {
                 if len(remainingArgs) != 1 {
-                        return nil, fmt.Errorf("usage: monday --cleanup [flags] <git_repo_path>")
+                        return nil, fmt.Errorf("usage: monday --cleanup --worktree-root <worktree_path> [flags] <git_repo_path>")
                 }
                 gitRepoPath := remainingArgs[0]
                 issueIDs := []string{} // Empty for cleanup mode
@@ -89,6 +99,7 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
                 return &AppConfig{
                         IssueIDs:       issueIDs,
                         GitRepoPath:    gitRepoPath,
+                        WorktreeRoot:   worktreeRoot,
                         LinearAPIKey:   linearAPIKey,
                         LinearEndpoint: linearEndpoint,
                         Concurrency:    concurrency,
@@ -101,7 +112,7 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         
         // For normal mode, require at least one issue ID and git repo path
         if len(remainingArgs) < 2 {
-                return nil, fmt.Errorf("usage: monday [flags] <issue_id_1> [issue_id_2 ...] <git_repo_path>")
+                return nil, fmt.Errorf("usage: monday --worktree-root <worktree_path> [flags] <issue_id_1> [issue_id_2 ...] <git_repo_path>")
         }
 
         // Last argument is always the git repository path
@@ -124,6 +135,7 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         return &AppConfig{
                 IssueIDs:       issueIDs,
                 GitRepoPath:    gitRepoPath,
+                WorktreeRoot:   worktreeRoot,
                 LinearAPIKey:   linearAPIKey,
                 LinearEndpoint: linearEndpoint,
                 Concurrency:    concurrency,
