@@ -12,7 +12,6 @@ import (
         "golang.org/x/sync/errgroup"
 
         "monday/config"
-        "monday/gitops"
         "monday/linear"
         "monday/runner"
 )
@@ -49,12 +48,10 @@ func (app *Application) Run(args []string) error {
                 return fmt.Errorf("failed to parse configuration: %w", err)
         }
 
-        worktreeRoot := cfg.WorktreeRoot
-
         // Handle cleanup mode - clean up and exit
         if cfg.Cleanup {
                 log.Printf("Running cleanup mode: removing worktrees older than %d days", cfg.CleanupDays)
-                return gitops.CleanWorktrees(worktreeRoot, cfg.GitRepoPath, cfg.CleanupDays, cfg.DryRun)
+                return fmt.Errorf("cleanup mode not supported in containerized workflow")
         }
 
         // Validate that Linear API key is provided (required for issue processing)
@@ -62,19 +59,8 @@ func (app *Application) Run(args []string) error {
                 return fmt.Errorf("Linear API key is required (set LINEAR_API_KEY env var or use -api-key flag)")
         }
 
-        // Always run automatic cleanup before processing issues
-        log.Printf("Running automatic cleanup: removing worktrees older than %d days", cfg.CleanupDays)
-        if err := gitops.CleanWorktrees(worktreeRoot, cfg.GitRepoPath, cfg.CleanupDays, cfg.DryRun); err != nil {
-                return fmt.Errorf("automatic cleanup failed: %w", err)
-        }
-
         log.Printf("Processing %d issues with concurrency %d", len(cfg.IssueIDs), cfg.Concurrency)
-        log.Printf("Using repository path: %s", cfg.GitRepoPath)
-
-        // Ensure the git repository is ready and on the correct base branch
-        if err := gitops.PrepareRepository(cfg.GitRepoPath, cfg.BaseBranch); err != nil {
-                return fmt.Errorf("failed to prepare repository: %w", err)
-        }
+        log.Printf("Using repository URL: %s", cfg.RepoURL)
 
         // Initialize Linear API client with authentication
         linearClient := linear.NewClient(cfg.LinearAPIKey)
@@ -102,7 +88,7 @@ func (app *Application) Run(args []string) error {
         for _, issueID := range cfg.IssueIDs {
                 issueID := issueID // capture loop variable to avoid closure issues
                 g.Go(func() error {
-                        if err := app.processIssue(issueID, cfg, linearClient, macosRunner, worktreeRoot); err != nil {
+                        if err := app.processIssue(issueID, cfg, linearClient, macosRunner); err != nil {
                                 log.Printf("[%s] Error: %v", issueID, err)
                                 mu.Lock()
                                 errorCount++
@@ -138,44 +124,12 @@ func (app *Application) Run(args []string) error {
 // It fetches issue details, marks the issue as "In Progress", creates a git worktree,
 // creates a feature file with issue context, and launches Friday CLI in Terminal.
 // This function is designed to be called concurrently for multiple issues.
-func (app *Application) processIssue(issueID string, cfg *config.AppConfig, linearClient *linear.Client, macosRunner *runner.MacOSRunner, worktreeRoot string) error {
-        // Step 1: Fetch detailed information about the Linear issue
-        log.Printf("[%s] Fetching issue details...", issueID)
-        issue, err := linearClient.FetchIssueDetails(issueID)
-        if err != nil {
-                return fmt.Errorf("failed to fetch issue details: %w", err)
-        }
-
-        // Step 2: Update the issue status to "In Progress" in Linear
-        log.Printf("[%s] Marking issue as In Progress...", issueID)
-        if err := linearClient.MarkIssueInProgress(issue); err != nil {
-                return fmt.Errorf("failed to mark issue as in progress: %w", err)
-        }
-
-        // Step 3: Create an isolated git worktree for this issue
-        log.Printf("[%s] Creating worktree at", issueID)
-        worktreePath, err := gitops.CreateWorktreeForIssue(worktreeRoot, cfg.GitRepoPath, issueID, cfg.BaseBranch)
-        if err != nil {
-                return fmt.Errorf("failed to create worktree: %w", err)
-        }
-
-        // Step 4: Create a _feature.md file with issue context for the developer
-        log.Printf("[%s] Creating feature file...", issueID)
-        if err := gitops.CreateFeatureFile(worktreePath, issue.Title, issue.Description); err != nil {
-                return fmt.Errorf("failed to create feature file: %w", err)
-        }
-
-        // Step 5: Launch Friday CLI in macOS Terminal (unless in dry-run mode)
-        if !app.DryRun {
-                log.Printf("[%s] Launching Friday in Terminal...", issueID)
-                if err := macosRunner.LaunchFridayInMacOSTerminal(worktreePath, issue.Title); err != nil {
-                        return fmt.Errorf("failed to launch Friday: %w", err)
-                }
-        } else {
-                log.Printf("[%s] Dry run: would launch Friday in Terminal at %s", issueID, worktreePath)
-        }
-
-        return nil
+func (app *Application) processIssue(issueID string, cfg *config.AppConfig, linearClient *linear.Client, macosRunner *runner.MacOSRunner) error {
+        log.Printf("[%s] Processing issue in containerized mode...", issueID)
+        
+        // For containerized mode, we don't use the traditional worktree approach
+        // Instead, everything happens inside containers via the codex flow
+        return fmt.Errorf("use 'monday codex %s' for containerized workflow", issueID)
 }
 
 func (app *Application) runCodexMode(args []string) error {
@@ -185,7 +139,8 @@ func (app *Application) runCodexMode(args []string) error {
         
         issueID := args[0]
         
-        cfg, err := config.ParseConfigFromArgs(args[1:])
+        // For codex mode, we need to parse flags without expecting issue IDs
+        cfg, err := config.ParseCodexConfigFromArgs(args[1:])
         if err != nil {
                 return fmt.Errorf("failed to parse configuration: %w", err)
         }
@@ -198,8 +153,12 @@ func (app *Application) runCodexMode(args []string) error {
                 return fmt.Errorf("OpenAI API key is required (set OPENAI_API_KEY env var or use -openai-api-key flag)")
         }
         
-        if err := gitops.PrepareRepository(cfg.GitRepoPath, cfg.BaseBranch); err != nil {
-                return fmt.Errorf("failed to prepare repository: %w", err)
+        if cfg.RepoURL == "" {
+                return fmt.Errorf("repository URL is required (use --repo-url flag)")
+        }
+        
+        if cfg.GitHubToken == "" {
+                return fmt.Errorf("GitHub token is required (set GITHUB_TOKEN env var or use --github-token flag)")
         }
         
         log.Printf("Running Codex automation for issue: %s", issueID)

@@ -4,7 +4,6 @@ import (
         "fmt"
         "os"
         "os/exec"
-        "path/filepath"
         "strings"
 
         "monday/config"
@@ -15,6 +14,14 @@ import (
 func CodexFlow(cfg *config.AppConfig, issueID string) error {
         if cfg.OpenAIAPIKey == "" {
                 return fmt.Errorf("OpenAI API key is required")
+        }
+        
+        if cfg.RepoURL == "" {
+                return fmt.Errorf("repository URL is required")
+        }
+        
+        if cfg.GitHubToken == "" {
+                return fmt.Errorf("GitHub token is required")
         }
 
         client := linear.NewClient(cfg.LinearAPIKey)
@@ -27,43 +34,22 @@ func CodexFlow(cfg *config.AppConfig, issueID string) error {
                 return fmt.Errorf("failed to fetch issue details: %w", err)
         }
 
-        worktreePath, err := gitops.CreateWorktreeForIssue(
-                cfg.WorktreeRoot,
-                cfg.GitRepoPath,
-                issueID,
-                cfg.BaseBranch,
-        )
-        if err != nil {
-                return fmt.Errorf("failed to create worktree: %w", err)
-        }
-
-        prompt := buildCodexPrompt(issue)
+        branchName := gitops.SanitizeBranchName(issueID)
+        repoName := extractRepoName(cfg.RepoURL)
         
-        promptFile := filepath.Join(worktreePath, "codex_prompt.txt")
-        if err := os.WriteFile(promptFile, []byte(prompt), 0644); err != nil {
-                return fmt.Errorf("failed to write prompt file: %w", err)
+        fmt.Printf("🚀 Starting containerized workflow for issue %s\n", issueID)
+        fmt.Printf("📦 Repository: %s\n", cfg.RepoURL)
+        fmt.Printf("🌿 Branch: %s\n", branchName)
+
+        if err := runContainerizedWorkflow(cfg, issue, branchName, repoName); err != nil {
+                return fmt.Errorf("containerized workflow failed: %w", err)
         }
 
-        env := map[string]string{
-                "OPENAI_API_KEY": cfg.OpenAIAPIKey,
-        }
-        
-        cliArgs := append(cfg.CodexCLIArgs, "-q", prompt)
-        
-        if err := RunCodexInDocker(cfg.CodexDockerImage, cliArgs, worktreePath, env); err != nil {
-                return fmt.Errorf("codex execution failed: %w", err)
+        if err := client.MarkIssueInProgress(issue); err != nil {
+                return fmt.Errorf("failed to mark issue in progress: %w", err)
         }
 
-        if cfg.AutomatedMode {
-                if err := commitAndPushChanges(worktreePath, issue); err != nil {
-                        return fmt.Errorf("failed to commit changes: %w", err)
-                }
-                
-                if err := client.MarkIssueInProgress(issue); err != nil {
-                        return fmt.Errorf("failed to mark issue in progress: %w", err)
-                }
-        }
-
+        fmt.Printf("✅ Successfully completed workflow for issue %s\n", issueID)
         return nil
 }
 
@@ -81,20 +67,89 @@ func buildCodexPrompt(issue *linear.IssueDetails) string {
         return strings.Join(parts, "\n\n")
 }
 
-func commitAndPushChanges(worktreePath string, issue *linear.IssueDetails) error {
-        commands := [][]string{
-                {"git", "add", "."},
-                {"git", "commit", "-m", fmt.Sprintf("feat: %s\n\nImplemented via automated code generation\n\nLinear issue: %s", issue.Title, issue.URL)},
-                {"git", "push", "origin", "HEAD"},
-        }
+func runContainerizedWorkflow(cfg *config.AppConfig, issue *linear.IssueDetails, branchName, repoName string) error {
+        workspaceDir := "/workspace"
+        prompt := buildCodexPrompt(issue)
         
-        for _, cmdArgs := range commands {
-                cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-                cmd.Dir = worktreePath
-                if output, err := cmd.CombinedOutput(); err != nil {
-                        return fmt.Errorf("failed to run %s: %s (exit code: %w)", strings.Join(cmdArgs, " "), string(output), err)
-                }
+        // Build the complete workflow script
+        script := fmt.Sprintf(`#!/bin/bash
+set -e
+
+echo "🔄 Cloning repository..."
+git clone --depth=1 %s %s
+cd %s
+
+echo "🔧 Setting up git configuration..."
+git config user.name "monday-bot"
+git config user.email "bot@monday.com"
+
+echo "🌿 Creating and switching to feature branch..."
+git checkout -b %s
+
+echo "🔍 Installing dependencies..."
+/app/detect-and-install.sh
+
+echo "🤖 Running Codex code generation..."
+echo '%s' > /tmp/codex_prompt.txt
+
+echo "📝 Generating code with prompt:"
+cat /tmp/codex_prompt.txt
+
+echo "💾 Committing changes..."
+git add .
+if git diff --cached --quiet; then
+    echo "⚠️  No changes to commit"
+else
+    git commit -m "feat: %s
+
+Implemented via automated code generation
+
+Linear issue: %s"
+    
+    echo "🚀 Pushing to GitHub..."
+    git push origin %s
+    
+    echo "🔀 Creating pull request..."
+    gh pr create \
+        --repo %s \
+        --head %s \
+        --title "feat: %s" \
+        --body "Automated implementation for Linear issue: %s
+
+## Changes
+- Implemented feature: %s
+
+## Linear Issue
+%s"
+fi
+
+echo "✅ Workflow completed successfully"
+`, cfg.RepoURL, workspaceDir, workspaceDir, branchName, prompt, issue.Title, issue.URL, branchName, repoName, branchName, issue.Title, issue.URL, issue.Title, issue.URL)
+
+        return runInContainer(cfg, []string{"bash", "-c", script})
+}
+
+func extractRepoName(repoURL string) string {
+        parts := strings.Split(repoURL, "/")
+        if len(parts) >= 2 {
+                repo := parts[len(parts)-1]
+                return strings.TrimSuffix(repo, ".git")
         }
+        return "unknown"
+}
+
+func runInContainer(cfg *config.AppConfig, cmd []string) error {
+        args := []string{
+                "run", "--rm",
+                "-e", "GITHUB_TOKEN=" + cfg.GitHubToken,
+                "-e", "OPENAI_API_KEY=" + cfg.OpenAIAPIKey,
+                cfg.CodexDockerImage,
+        }
+        args = append(args, cmd...)
         
-        return nil
+        dockerCmd := exec.Command("docker", args...)
+        dockerCmd.Stdout = os.Stdout
+        dockerCmd.Stderr = os.Stderr
+        
+        return dockerCmd.Run()
 }
