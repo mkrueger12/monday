@@ -41,6 +41,12 @@ type AppConfig struct {
         OpenAIAPIKey    string
         // GitHubToken is the authentication token for GitHub API access
         GitHubToken     string
+        // LinearTeam is the Linear team key to filter issues by
+        LinearTeam      string
+        // LinearProject is the Linear project key to filter issues by
+        LinearProject   string
+        // LinearTag is the Linear tag/label to filter issues by
+        LinearTag       string
 }
 
 // ParseConfig parses configuration from the default command-line arguments (os.Args[1:]).
@@ -197,6 +203,9 @@ func ParseCodexConfigFromArgs(args []string) (*AppConfig, error) {
         var automatedMode bool
         var openaiAPIKey string
         var githubToken string
+        var linearTeam string
+        var linearProject string
+        var linearTag string
 
         // Create a new flag set for parsing monday CLI arguments
         fs := flag.NewFlagSet("monday", flag.ContinueOnError)
@@ -212,6 +221,9 @@ func ParseCodexConfigFromArgs(args []string) (*AppConfig, error) {
         fs.BoolVar(&automatedMode, "automated", false, "Enable full automation mode")
         fs.StringVar(&openaiAPIKey, "openai-api-key", "", "OpenAI API key (overrides OPENAI_API_KEY env var)")
         fs.StringVar(&githubToken, "github-token", "", "GitHub token (overrides GITHUB_TOKEN env var)")
+        fs.StringVar(&linearTeam, "linear-team", "", "Linear team key to filter issues by")
+        fs.StringVar(&linearProject, "linear-project", "", "Linear project key to filter issues by")
+        fs.StringVar(&linearTag, "linear-tag", "", "Linear tag/label to filter issues by")
         
         // Parse the provided arguments
         err := fs.Parse(args)
@@ -253,5 +265,8 @@ func ParseCodexConfigFromArgs(args []string) (*AppConfig, error) {
                 AutomatedMode:    automatedMode,
                 OpenAIAPIKey:     openaiKey,
                 GitHubToken:      ghToken,
+                LinearTeam:       linearTeam,
+                LinearProject:    linearProject,
+                LinearTag:        linearTag,
         }, nil
 }

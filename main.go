@@ -7,6 +7,8 @@ import (
         "fmt"
         "log"
         "os"
+        "strconv"
+        "strings"
         "sync"
 
         "golang.org/x/sync/errgroup"
@@ -133,24 +135,18 @@ func (app *Application) processIssue(issueID string, cfg *config.AppConfig, line
 }
 
 func (app *Application) runCodexMode(args []string) error {
-        if len(args) == 0 {
-                return fmt.Errorf("usage: monday codex <issue_id>")
-        }
-        
-        issueID := args[0]
-        
-        // For codex mode, we need to parse flags without expecting issue IDs
-        cfg, err := config.ParseCodexConfigFromArgs(args[1:])
+        // Parse configuration first to get Linear API settings
+        cfg, err := config.ParseCodexConfigFromArgs(args)
         if err != nil {
                 return fmt.Errorf("failed to parse configuration: %w", err)
         }
         
         if cfg.LinearAPIKey == "" {
-                return fmt.Errorf("Linear API key is required (set LINEAR_API_KEY env var or use -api-key flag)")
+                return fmt.Errorf("Linear API key is required (set LINEAR_API_KEY env var or use --api-key flag)")
         }
         
         if cfg.OpenAIAPIKey == "" {
-                return fmt.Errorf("OpenAI API key is required (set OPENAI_API_KEY env var or use -openai-api-key flag)")
+                return fmt.Errorf("OpenAI API key is required (set OPENAI_API_KEY env var or use --openai-api-key flag)")
         }
         
         if cfg.RepoURL == "" {
@@ -161,6 +157,86 @@ func (app *Application) runCodexMode(args []string) error {
                 return fmt.Errorf("GitHub token is required (set GITHUB_TOKEN env var or use --github-token flag)")
         }
         
+        // Initialize Linear client
+        linearClient := linear.NewClient(cfg.LinearAPIKey)
+        if cfg.LinearEndpoint != "" {
+                linearClient.SetEndpoint(cfg.LinearEndpoint)
+        }
+        
+        // Determine which issue to process
+        var issueID string
+        var issue *linear.IssueDetails
+        
+        // Check if a specific issue ID was provided as first argument
+        if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+                issueID = args[0]
+                log.Printf("Using specified issue ID: %s", issueID)
+                
+                // Fetch the specific issue
+                var err error
+                issue, err = linearClient.FetchIssueDetails(issueID)
+                if err != nil {
+                        return fmt.Errorf("failed to fetch issue %s: %w", issueID, err)
+                }
+        } else {
+                // No specific issue ID provided, find first available issue based on filters
+                log.Printf("No issue ID provided, searching for issues with filters: team=%s, project=%s, tag=%s", 
+                        cfg.LinearTeam, cfg.LinearProject, cfg.LinearTag)
+                
+                // If no filters provided, get first team and project
+                if cfg.LinearTeam == "" && cfg.LinearProject == "" && cfg.LinearTag == "" {
+                        teams, err := linearClient.FetchTeams()
+                        if err != nil {
+                                return fmt.Errorf("failed to fetch teams: %w", err)
+                        }
+                        
+                        if len(teams) == 0 {
+                                return fmt.Errorf("no teams found")
+                        }
+                        
+                        cfg.LinearTeam = teams[0].Key
+                        log.Printf("Using first available team: %s", cfg.LinearTeam)
+                        
+                        if len(teams[0].Projects.Nodes) > 0 {
+                                cfg.LinearProject = teams[0].Projects.Nodes[0].Key
+                                log.Printf("Using first available project: %s", cfg.LinearProject)
+                        }
+                }
+                
+                // Fetch issues based on filters
+                issues, err := linearClient.FetchIssuesByFilters(cfg.LinearTeam, cfg.LinearProject, cfg.LinearTag)
+                if err != nil {
+                        return fmt.Errorf("failed to fetch issues: %w", err)
+                }
+                
+                if len(issues) == 0 {
+                        return fmt.Errorf("no issues found matching the specified filters")
+                }
+                
+                // Use the first issue
+                issue = &issues[0]
+                issueID = fmt.Sprintf("%s-%d", cfg.LinearTeam, extractIssueNumber(issue.URL))
+                log.Printf("Selected first available issue: %s - %s", issueID, issue.Title)
+        }
+        
         log.Printf("Running Codex automation for issue: %s", issueID)
         return runner.CodexFlow(cfg, issueID)
+}
+
+// extractIssueNumber extracts the issue number from a Linear issue URL
+func extractIssueNumber(url string) int {
+        // Linear URLs typically end with the issue identifier like /issue/TEAM-123
+        parts := strings.Split(url, "/")
+        if len(parts) > 0 {
+                lastPart := parts[len(parts)-1]
+                if strings.Contains(lastPart, "-") {
+                        numberPart := strings.Split(lastPart, "-")
+                        if len(numberPart) > 1 {
+                                if num, err := strconv.Atoi(numberPart[len(numberPart)-1]); err == nil {
+                                        return num
+                                }
+                        }
+                }
+        }
+        return 1 // fallback
 }
