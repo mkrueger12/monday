@@ -95,6 +95,9 @@ echo '%s' > /tmp/codex_prompt.txt
 echo "📝 Generating code with prompt:"
 cat /tmp/codex_prompt.txt
 
+echo "🔥 Executing Codex in full auto mode..."
+codex --approval-mode full-auto --quiet "$(cat /tmp/codex_prompt.txt)"
+
 echo "💾 Committing changes..."
 git add .
 if git diff --cached --quiet; then
