@@ -33,6 +33,16 @@ type AppConfig struct {
         Cleanup         bool
         // CleanupDays is the number of days to retain worktrees before cleanup (default: 7)
         CleanupDays     int
+        // CodexDockerImage is the Docker image to use for OpenAI Codex CLI
+        CodexDockerImage string
+        // CodexCLIArgs contains additional arguments to pass to the Codex CLI
+        CodexCLIArgs    []string
+        // AutomatedMode enables full automation without manual approval
+        AutomatedMode   bool
+        // OpenAIAPIKey is the authentication token for OpenAI API access
+        OpenAIAPIKey    string
+        // GitHubToken is the authentication token for GitHub API access
+        GitHubToken     string
 }
 
 // ParseConfig parses configuration from the default command-line arguments (os.Args[1:]).
@@ -55,6 +65,10 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         var cleanup bool
         var cleanupDays int
         var worktreeRoot string
+        var codexDockerImage string
+        var automatedMode bool
+        var openaiAPIKey string
+        var githubToken string
 
         // Create a new flag set for parsing monday CLI arguments
         fs := flag.NewFlagSet("monday", flag.ContinueOnError)
@@ -67,6 +81,10 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         fs.IntVar(&cleanupDays, "cleanup-days", 7, "Number of days to retain worktrees")
         fs.StringVar(&worktreeRoot, "worktree-root", "", "Root directory for git worktrees (required)")
         fs.StringVar(&worktreeRoot, "w", "", "Shorthand for --worktree-root")
+        fs.StringVar(&codexDockerImage, "codex-docker-image", "openai/codex-cli:latest", "Docker image for OpenAI Codex CLI")
+        fs.BoolVar(&automatedMode, "automated", false, "Enable full automation mode")
+        fs.StringVar(&openaiAPIKey, "openai-api-key", "", "OpenAI API key (overrides OPENAI_API_KEY env var)")
+        fs.StringVar(&githubToken, "github-token", "", "GitHub token (overrides GITHUB_TOKEN env var)")
         
         // Parse the provided arguments
         err := fs.Parse(args)
@@ -96,17 +114,34 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
                         linearAPIKey = os.Getenv("LINEAR_API_KEY")
                 }
                 
+                // Handle OpenAI API key
+                openaiKey := openaiAPIKey
+                if openaiKey == "" {
+                        openaiKey = os.Getenv("OPENAI_API_KEY")
+                }
+                
+                // Handle GitHub token
+                ghToken := githubToken
+                if ghToken == "" {
+                        ghToken = os.Getenv("GITHUB_TOKEN")
+                }
+                
                 return &AppConfig{
-                        IssueIDs:       issueIDs,
-                        GitRepoPath:    gitRepoPath,
-                        WorktreeRoot:   worktreeRoot,
-                        LinearAPIKey:   linearAPIKey,
-                        LinearEndpoint: linearEndpoint,
-                        Concurrency:    concurrency,
-                        DryRun:         dryRun,
-                        BaseBranch:     baseBranch,
-                        Cleanup:        cleanup,
-                        CleanupDays:    cleanupDays,
+                        IssueIDs:         issueIDs,
+                        GitRepoPath:      gitRepoPath,
+                        WorktreeRoot:     worktreeRoot,
+                        LinearAPIKey:     linearAPIKey,
+                        LinearEndpoint:   linearEndpoint,
+                        Concurrency:      concurrency,
+                        DryRun:           dryRun,
+                        BaseBranch:       baseBranch,
+                        Cleanup:          cleanup,
+                        CleanupDays:      cleanupDays,
+                        CodexDockerImage: codexDockerImage,
+                        CodexCLIArgs:     []string{"--approval-mode", "full-auto"},
+                        AutomatedMode:    automatedMode,
+                        OpenAIAPIKey:     openaiKey,
+                        GitHubToken:      ghToken,
                 }, nil
         }
         
@@ -130,18 +165,35 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         if linearAPIKey == "" {
                 linearAPIKey = os.Getenv("LINEAR_API_KEY")
         }
+        
+        // Handle OpenAI API key
+        openaiKey := openaiAPIKey
+        if openaiKey == "" {
+                openaiKey = os.Getenv("OPENAI_API_KEY")
+        }
+        
+        // Handle GitHub token
+        ghToken := githubToken
+        if ghToken == "" {
+                ghToken = os.Getenv("GITHUB_TOKEN")
+        }
 
         // Return fully populated configuration
         return &AppConfig{
-                IssueIDs:       issueIDs,
-                GitRepoPath:    gitRepoPath,
-                WorktreeRoot:   worktreeRoot,
-                LinearAPIKey:   linearAPIKey,
-                LinearEndpoint: linearEndpoint,
-                Concurrency:    concurrency,
-                DryRun:         dryRun,
-                BaseBranch:     baseBranch,
-                Cleanup:        cleanup,
-                CleanupDays:    cleanupDays,
+                IssueIDs:         issueIDs,
+                GitRepoPath:      gitRepoPath,
+                WorktreeRoot:     worktreeRoot,
+                LinearAPIKey:     linearAPIKey,
+                LinearEndpoint:   linearEndpoint,
+                Concurrency:      concurrency,
+                DryRun:           dryRun,
+                BaseBranch:       baseBranch,
+                Cleanup:          cleanup,
+                CleanupDays:      cleanupDays,
+                CodexDockerImage: codexDockerImage,
+                CodexCLIArgs:     []string{"--approval-mode", "full-auto"},
+                AutomatedMode:    automatedMode,
+                OpenAIAPIKey:     openaiKey,
+                GitHubToken:      ghToken,
         }, nil
 }

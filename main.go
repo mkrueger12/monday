@@ -39,6 +39,10 @@ func main() {
 // and processes all Linear issues concurrently according to the specified concurrency limit.
 // Returns an error if any critical step fails or if any issues fail to process.
 func (app *Application) Run(args []string) error {
+        // Check for codex subcommand
+        if len(args) > 0 && args[0] == "codex" {
+                return app.runCodexMode(args[1:])
+        }
         // Parse command-line arguments and environment variables into configuration
         cfg, err := config.ParseConfigFromArgs(args)
         if err != nil {
@@ -172,4 +176,32 @@ func (app *Application) processIssue(issueID string, cfg *config.AppConfig, line
         }
 
         return nil
+}
+
+func (app *Application) runCodexMode(args []string) error {
+        if len(args) == 0 {
+                return fmt.Errorf("usage: monday codex <issue_id>")
+        }
+        
+        issueID := args[0]
+        
+        cfg, err := config.ParseConfigFromArgs(args[1:])
+        if err != nil {
+                return fmt.Errorf("failed to parse configuration: %w", err)
+        }
+        
+        if cfg.LinearAPIKey == "" {
+                return fmt.Errorf("Linear API key is required (set LINEAR_API_KEY env var or use -api-key flag)")
+        }
+        
+        if cfg.OpenAIAPIKey == "" {
+                return fmt.Errorf("OpenAI API key is required (set OPENAI_API_KEY env var or use -openai-api-key flag)")
+        }
+        
+        if err := gitops.PrepareRepository(cfg.GitRepoPath, cfg.BaseBranch); err != nil {
+                return fmt.Errorf("failed to prepare repository: %w", err)
+        }
+        
+        log.Printf("Running Codex automation for issue: %s", issueID)
+        return runner.CodexFlow(cfg, issueID)
 }

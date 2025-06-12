@@ -6,6 +6,8 @@
 
 The "monday" CLI tool automates the setup of development environments for one or more Linear issues. It fetches issue details, prepares a shared Git repository, creates isolated Git worktrees for each issue, and launches the "friday" CLI in new macOS Terminal tabs/windows, pre-configured for each respective worktree. The tool is designed to run on macOS and leverage Zsh/Terminal.app via `osascript`. **This project will strictly follow a Test-Driven Development (TDD) methodology.**
 
+**NEW: Codex Integration** - The tool now supports automated code generation using OpenAI Codex CLI in Docker containers. This enables headless, fully automated development workflows from Linear issues to implemented code.
+
 **2. Goals**
 
 *   Automate the creation of Git worktrees for Linear issues.
@@ -27,6 +29,32 @@ The "monday" CLI tool automates the setup of development environments for one or
 2.  **Initialization & Global Git Prep**
 3.  **Concurrent Issue Processing (Fetch Linear, Create Worktree, Launch "friday")**
 4.  **Completion & Reporting**
+
+**4.1. Codex Automation Mode**
+
+For automated code generation using OpenAI Codex:
+
+```bash
+monday codex <ISSUE_ID> [FLAGS]
+```
+
+**Required Environment Variables:**
+- `OPENAI_API_KEY` - OpenAI API key for Codex access
+- `LINEAR_API_KEY` - Linear API key for issue access
+- `GITHUB_TOKEN` - GitHub token for git operations (optional)
+
+**Key Flags:**
+- `--codex-docker-image` - Docker image for Codex CLI (default: openai/codex-cli:latest)
+- `--automated` - Enable full automation mode (auto-commit and push)
+- `--worktree-root` - Root directory for git worktrees (required)
+
+**Example:**
+```bash
+monday codex DEL-163 \
+  --worktree-root /tmp/worktrees \
+  --automated \
+  /path/to/repo
+```
 
 **5. Detailed Technical Specifications & TDD Approach**
 
