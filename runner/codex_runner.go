@@ -56,13 +56,11 @@ func CodexFlow(cfg *config.AppConfig, issueID string) error {
 func buildCodexPrompt(issue *linear.IssueDetails) string {
         var parts []string
         
-        parts = append(parts, fmt.Sprintf("Implement feature: %s", issue.Title))
+        parts = append(parts, issue.Title)
         
         if issue.Description != "" {
-                parts = append(parts, fmt.Sprintf("Description: %s", issue.Description))
+                parts = append(parts, issue.Description)
         }
-        
-        parts = append(parts, "Please implement this feature following best practices and include appropriate tests.")
         
         return strings.Join(parts, "\n\n")
 }
