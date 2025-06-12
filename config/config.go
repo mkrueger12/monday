@@ -25,12 +25,6 @@ type AppConfig struct {
         Concurrency     int
         // DryRun indicates whether to simulate operations without launching Terminal
         DryRun          bool
-        // BaseBranch is the git branch to use as the base for new worktree branches (default: "develop")
-        BaseBranch      string
-        // Cleanup indicates whether to run cleanup mode and exit (no issue processing)
-        Cleanup         bool
-        // CleanupDays is the number of days to retain worktrees before cleanup (default: 7)
-        CleanupDays     int
         // CodexDockerImage is the Docker image to use for OpenAI Codex CLI
         CodexDockerImage string
         // CodexCLIArgs contains additional arguments to pass to the Codex CLI
@@ -57,7 +51,7 @@ func ParseConfig() (*AppConfig, error) {
 
 // ParseConfigFromArgs parses configuration from the provided command-line arguments.
 // It handles flag parsing, argument validation, and environment variable fallbacks.
-// Expected usage: monday [flags] <issue_id_1> [issue_id_2 ...] <git_repo_path>
+// Expected usage: monday [flags] <issue_id_1> [issue_id_2 ...]
 // Returns a fully populated AppConfig or an error if parsing/validation fails.
 func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         // Initialize variables for flag parsing
@@ -65,9 +59,6 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         var apiKey string
         var linearEndpoint string
         var dryRun bool
-        var baseBranch string
-        var cleanup bool
-        var cleanupDays int
         var repoURL string
         var codexDockerImage string
         var automatedMode bool
@@ -80,9 +71,6 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         fs.StringVar(&apiKey, "api-key", "", "Linear API key (overrides LINEAR_API_KEY env var)")
         fs.StringVar(&linearEndpoint, "linear-endpoint", "", "Linear API endpoint (for testing)")
         fs.BoolVar(&dryRun, "dry-run", false, "Don't actually launch Terminal")
-        fs.StringVar(&baseBranch, "base-branch", "develop", "Git base branch for new worktrees")
-        fs.BoolVar(&cleanup, "cleanup", false, "Run cleanup of old worktrees and exit")
-        fs.IntVar(&cleanupDays, "cleanup-days", 7, "Number of days to retain worktrees")
         fs.StringVar(&repoURL, "repo-url", "", "GitHub repository URL to clone (required for codex mode)")
         fs.StringVar(&codexDockerImage, "codex-docker-image", "monday/codex:latest", "Docker image for OpenAI Codex CLI")
         fs.BoolVar(&automatedMode, "automated", false, "Enable full automation mode")
@@ -95,53 +83,8 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
                 return nil, err
         }
 
-
-
-        // Extract non-flag arguments (issue IDs and git repo path)
+        // Extract non-flag arguments (issue IDs)
         remainingArgs := fs.Args()
-        
-        // For cleanup mode, no additional arguments needed
-        if cleanup {
-                if len(remainingArgs) != 0 {
-                        return nil, fmt.Errorf("usage: monday --cleanup [flags]")
-                }
-                issueIDs := []string{} // Empty for cleanup mode
-                
-                // Use CLI flag value or fall back to environment variable
-                linearAPIKey := apiKey
-                if linearAPIKey == "" {
-                        linearAPIKey = os.Getenv("LINEAR_API_KEY")
-                }
-                
-                // Handle OpenAI API key
-                openaiKey := openaiAPIKey
-                if openaiKey == "" {
-                        openaiKey = os.Getenv("OPENAI_API_KEY")
-                }
-                
-                // Handle GitHub token
-                ghToken := githubToken
-                if ghToken == "" {
-                        ghToken = os.Getenv("GITHUB_TOKEN")
-                }
-                
-                return &AppConfig{
-                        IssueIDs:         issueIDs,
-                        RepoURL:          repoURL,
-                        LinearAPIKey:     linearAPIKey,
-                        LinearEndpoint:   linearEndpoint,
-                        Concurrency:      concurrency,
-                        DryRun:           dryRun,
-                        BaseBranch:       baseBranch,
-                        Cleanup:          cleanup,
-                        CleanupDays:      cleanupDays,
-                        CodexDockerImage: codexDockerImage,
-                        CodexCLIArgs:     []string{"--approval-mode", "full-auto"},
-                        AutomatedMode:    automatedMode,
-                        OpenAIAPIKey:     openaiKey,
-                        GitHubToken:      ghToken,
-                }, nil
-        }
         
         // For normal mode, require at least one issue ID
         if len(remainingArgs) < 1 {
@@ -177,9 +120,6 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
                 LinearEndpoint:   linearEndpoint,
                 Concurrency:      concurrency,
                 DryRun:           dryRun,
-                BaseBranch:       baseBranch,
-                Cleanup:          cleanup,
-                CleanupDays:      cleanupDays,
                 CodexDockerImage: codexDockerImage,
                 CodexCLIArgs:     []string{"--approval-mode", "full-auto"},
                 AutomatedMode:    automatedMode,
@@ -195,9 +135,6 @@ func ParseCodexConfigFromArgs(args []string) (*AppConfig, error) {
         var apiKey string
         var linearEndpoint string
         var dryRun bool
-        var baseBranch string
-        var cleanup bool
-        var cleanupDays int
         var repoURL string
         var codexDockerImage string
         var automatedMode bool
@@ -213,9 +150,6 @@ func ParseCodexConfigFromArgs(args []string) (*AppConfig, error) {
         fs.StringVar(&apiKey, "api-key", "", "Linear API key (overrides LINEAR_API_KEY env var)")
         fs.StringVar(&linearEndpoint, "linear-endpoint", "", "Linear API endpoint (for testing)")
         fs.BoolVar(&dryRun, "dry-run", false, "Don't actually launch Terminal")
-        fs.StringVar(&baseBranch, "base-branch", "develop", "Git base branch for new worktrees")
-        fs.BoolVar(&cleanup, "cleanup", false, "Run cleanup of old worktrees and exit")
-        fs.IntVar(&cleanupDays, "cleanup-days", 7, "Number of days to retain worktrees")
         fs.StringVar(&repoURL, "repo-url", "", "GitHub repository URL to clone (required for codex mode)")
         fs.StringVar(&codexDockerImage, "codex-docker-image", "monday/codex:latest", "Docker image for OpenAI Codex CLI")
         fs.BoolVar(&automatedMode, "automated", false, "Enable full automation mode")
@@ -257,9 +191,6 @@ func ParseCodexConfigFromArgs(args []string) (*AppConfig, error) {
                 LinearEndpoint:   linearEndpoint,
                 Concurrency:      concurrency,
                 DryRun:           dryRun,
-                BaseBranch:       baseBranch,
-                Cleanup:          cleanup,
-                CleanupDays:      cleanupDays,
                 CodexDockerImage: codexDockerImage,
                 CodexCLIArgs:     []string{"--approval-mode", "full-auto"},
                 AutomatedMode:    automatedMode,

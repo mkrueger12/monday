@@ -10,11 +10,7 @@ RUN apk add --no-cache \
     nodejs \
     npm \
     python3 \
-    py3-pip \
-    ruby \
-    ruby-bundler \
-    go \
-    && gem install bundler
+    py3-pip
 
 # Install GitHub CLI
 RUN curl -fsSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz \
@@ -28,6 +24,9 @@ RUN mkdir -p /app
 # Copy dependency detection script
 COPY scripts/detect-and-install.sh /app/detect-and-install.sh
 RUN chmod +x /app/detect-and-install.sh
+
+
+RUN npm i -g @openai/codex
 
 # Set working directory
 WORKDIR /workspace
