@@ -16,6 +16,7 @@ import (
 func runMondayWorkflow(cmd *cobra.Command, args []string) error {
         issueID := args[0]
         
+        fmt.Printf("🚀 Starting Monday workflow for %s\n", issueID)
         logger.Info("Starting Monday workflow", 
                 zap.String("issue_id", issueID),
                 zap.String("repo_url", repoURL))
@@ -40,12 +41,14 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
         issueID = extractIssueID(issueID)
         logger.Info("Extracted issue ID", zap.String("issue_id", issueID))
 
+        fmt.Printf("📋 Fetching Linear issue details...\n")
         logger.Info("Fetching Linear issue details")
         issue, err := linearClient.FetchIssueDetails(issueID)
         if err != nil {
                 return fmt.Errorf("failed to fetch issue details: %w", err)
         }
 
+        fmt.Printf("✅ Issue: %s\n", issue.Title)
         logger.Info("Issue fetched successfully", 
                 zap.String("title", issue.Title),
                 zap.String("branch_name", issue.BranchName))
@@ -58,6 +61,7 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
         repoName := extractRepoName(repoURL)
         workDir := filepath.Join(".", repoName)
 
+        fmt.Printf("📦 Cloning repository...\n")
         logger.Info("Cloning repository", zap.String("repo_url", repoURL))
         if err := runCommand("git", "clone", repoURL); err != nil {
                 return fmt.Errorf("failed to clone repository: %w", err)
@@ -73,17 +77,20 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
                 branchName = fmt.Sprintf("feature/%s", strings.ToLower(strings.ReplaceAll(issueID, "-", "_")))
         }
 
+        fmt.Printf("🌿 Creating branch: %s\n", branchName)
         logger.Info("Creating feature branch", zap.String("branch_name", branchName))
         if err := runCommand("git", "checkout", "-b", branchName); err != nil {
                 return fmt.Errorf("failed to create branch: %w", err)
         }
 
+        fmt.Printf("🤖 Running Codex CLI...\n")
         logger.Info("Running Codex CLI", zap.String("description", issue.Description))
         codexPrompt := fmt.Sprintf("%s\n\n%s", issue.Title, issue.Description)
         if err := runCodex(codexPrompt, openaiAPIKey); err != nil {
                 return fmt.Errorf("failed to run Codex: %w", err)
         }
 
+        fmt.Printf("📝 Committing and pushing changes...\n")
         logger.Info("Staging changes")
         if err := runCommand("git", "add", "."); err != nil {
                 return fmt.Errorf("failed to stage changes: %w", err)
@@ -100,11 +107,13 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
                 return fmt.Errorf("failed to push branch: %w", err)
         }
 
+        fmt.Printf("🚀 Creating pull request...\n")
         logger.Info("Creating pull request")
         if err := createPullRequest(issue, githubToken); err != nil {
                 return fmt.Errorf("failed to create pull request: %w", err)
         }
 
+        fmt.Printf("✅ Monday workflow completed successfully!\n")
         logger.Info("Monday workflow completed successfully")
         return nil
 }
