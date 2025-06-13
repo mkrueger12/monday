@@ -2,7 +2,7 @@
 
 # Build the monday CLI
 build:
-	go build -o monday .
+	go build -o bin/monday .
 
 # Clean build artifacts
 clean:

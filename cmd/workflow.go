@@ -142,8 +142,15 @@ func extractRepoName(repoURL string) string {
 
 func runCommand(name string, args ...string) error {
         cmd := exec.Command(name, args...)
-        cmd.Stdout = os.Stdout
-        cmd.Stderr = os.Stderr
+        
+        if verbose {
+                cmd.Stdout = os.Stdout
+                cmd.Stderr = os.Stderr
+        } else {
+                cmd.Stdout = nil
+                cmd.Stderr = nil
+        }
+        
         logger.Debug("Running command", zap.String("command", name), zap.Strings("args", args))
         return cmd.Run()
 }
@@ -151,8 +158,15 @@ func runCommand(name string, args ...string) error {
 func runCodex(prompt, apiKey string) error {
         cmd := exec.Command("codex", "--approval-mode", "full-auto", "-q", prompt)
         cmd.Env = append(os.Environ(), fmt.Sprintf("OPENAI_API_KEY=%s", apiKey))
-        cmd.Stdout = os.Stdout
-        cmd.Stderr = os.Stderr
+        
+        if verbose {
+                cmd.Stdout = os.Stdout
+                cmd.Stderr = os.Stderr
+        } else {
+                cmd.Stdout = nil
+                cmd.Stderr = nil
+        }
+        
         logger.Debug("Running Codex", zap.String("prompt", prompt))
         return cmd.Run()
 }
@@ -163,8 +177,14 @@ func createPullRequest(issue *linear.IssueDetails, token string) error {
         
         cmd := exec.Command("gh", "pr", "create", "--title", prTitle, "--body", prBody)
         cmd.Env = append(os.Environ(), fmt.Sprintf("GITHUB_TOKEN=%s", token))
-        cmd.Stdout = os.Stdout
-        cmd.Stderr = os.Stderr
+        
+        if verbose {
+                cmd.Stdout = os.Stdout
+                cmd.Stderr = os.Stderr
+        } else {
+                cmd.Stdout = nil
+                cmd.Stderr = nil
+        }
         
         logger.Debug("Creating PR", zap.String("title", prTitle))
         return cmd.Run()
