@@ -34,13 +34,7 @@ RUN apk add --no-cache \
     curl \
     ca-certificates \
     python3 \
-    py3-pip \
-    ruby \
-    ruby-dev \
-    ruby-bundler \
-    go \
-    cargo \
-    rust
+    py3-pip
 
 # Install GitHub CLI (architecture-aware)
 RUN ARCH=$(uname -m) && \
@@ -59,10 +53,6 @@ RUN mkdir -p /app
 
 # Copy Monday CLI binary from builder stage
 COPY --from=builder /build/monday /usr/local/bin/monday
-
-# Copy dependency detection script
-COPY scripts/detect-and-install.sh /app/detect-and-install.sh
-RUN chmod +x /app/detect-and-install.sh
 
 # Set working directory
 WORKDIR /workspace
