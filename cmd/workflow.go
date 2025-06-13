@@ -173,22 +173,6 @@ func extractRepoName(repoURL string) string {
         return strings.TrimSuffix(repoName, ".git")
 }
 
-// runCommand executes a system command with the specified name and arguments, optionally displaying output based on the verbose flag.
-func runCommand(name string, args ...string) error {
-        cmd := exec.Command(name, args...)
-        
-        if verbose {
-                cmd.Stdout = os.Stdout
-                cmd.Stderr = os.Stderr
-        } else {
-                cmd.Stdout = nil
-                cmd.Stderr = nil
-        }
-        
-        logger.Debug("Running command", zap.String("command", name), zap.Strings("args", args))
-        return cmd.Run()
-}
-
 // runGitCommand executes a git command with the specified arguments, logging its execution and output based on the verbosity setting.
 // Returns an error if the git command fails.
 func runGitCommand(args ...string) error {
@@ -254,9 +238,9 @@ func createPullRequest(issue *linear.IssueDetails, token string) error {
                 cmd.Stderr = os.Stderr
         } else {
                 cmd.Stdout = nil
-                cmd.Stderr = nil
+                cmd.Stderr = os.Stderr
         }
         
-        logger.Debug("Creating PR", zap.String("title", prTitle))
+        logger.Info("Creating PR", zap.String("title", prTitle))
         return cmd.Run()
 }
