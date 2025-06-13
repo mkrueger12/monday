@@ -63,7 +63,7 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
 
         fmt.Printf("📦 Cloning repository...\n")
         logger.Info("Cloning repository", zap.String("repo_url", repoURL))
-        if err := runCommand("git", "clone", repoURL); err != nil {
+        if err := runGitCommand("clone", repoURL); err != nil {
                 return fmt.Errorf("failed to clone repository: %w", err)
         }
 
@@ -79,7 +79,7 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
 
         fmt.Printf("🌿 Creating branch: %s\n", branchName)
         logger.Info("Creating feature branch", zap.String("branch_name", branchName))
-        if err := runCommand("git", "checkout", "-b", branchName); err != nil {
+        if err := runGitCommand("checkout", "-b", branchName); err != nil {
                 return fmt.Errorf("failed to create branch: %w", err)
         }
 
@@ -92,18 +92,18 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
 
         fmt.Printf("📝 Committing and pushing changes...\n")
         logger.Info("Staging changes")
-        if err := runCommand("git", "add", "."); err != nil {
+        if err := runGitCommand("add", "."); err != nil {
                 return fmt.Errorf("failed to stage changes: %w", err)
         }
 
         commitMsg := fmt.Sprintf("feat: %s\n\n%s\n\nLinear Issue: %s", issue.Title, issue.Description, issue.URL)
         logger.Info("Committing changes", zap.String("commit_message", commitMsg))
-        if err := runCommand("git", "commit", "-m", commitMsg); err != nil {
+        if err := runGitCommand("commit", "-m", commitMsg); err != nil {
                 return fmt.Errorf("failed to commit changes: %w", err)
         }
 
         logger.Info("Pushing branch to origin")
-        if err := runCommand("git", "push", "--set-upstream", "origin", branchName); err != nil {
+        if err := runGitCommand("push", "--set-upstream", "origin", branchName); err != nil {
                 return fmt.Errorf("failed to push branch: %w", err)
         }
 
@@ -152,6 +152,21 @@ func runCommand(name string, args ...string) error {
         }
         
         logger.Debug("Running command", zap.String("command", name), zap.Strings("args", args))
+        return cmd.Run()
+}
+
+func runGitCommand(args ...string) error {
+        cmd := exec.Command("git", args...)
+        
+        if verbose {
+                cmd.Stdout = os.Stdout
+                cmd.Stderr = os.Stderr
+        } else {
+                cmd.Stdout = nil
+                cmd.Stderr = os.Stderr
+        }
+        
+        logger.Debug("Running git command", zap.Strings("args", args))
         return cmd.Run()
 }
 
