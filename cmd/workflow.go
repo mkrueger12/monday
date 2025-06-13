@@ -13,6 +13,17 @@ import (
         "monday/linear"
 )
 
+// runMondayWorkflow executes an automated workflow that integrates Linear issue tracking, Git repository operations, OpenAI Codex code generation, and GitHub pull request creation for a specified Linear issue.
+//
+// The workflow performs the following steps:
+//   - Validates required environment variables for Linear, GitHub, and OpenAI API access.
+//   - Fetches issue details from Linear and marks the issue as "In Progress".
+//   - Clones the associated Git repository and creates a new feature branch.
+//   - Runs the Codex CLI tool to generate code or content based on the issue description.
+//   - Stages, commits, and pushes changes to the remote repository.
+//   - Creates a GitHub pull request referencing the Linear issue.
+//
+// Returns an error if any step fails; otherwise, returns nil.
 func runMondayWorkflow(cmd *cobra.Command, args []string) error {
         issueID := args[0]
         
@@ -138,6 +149,7 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
         return nil
 }
 
+// extractIssueID parses the input string to extract a Linear issue ID, handling both direct IDs and Linear issue URLs.
 func extractIssueID(input string) string {
         if strings.Contains(input, "linear.app") {
                 parts := strings.Split(input, "/")
@@ -154,12 +166,14 @@ func extractIssueID(input string) string {
         return input
 }
 
+// extractRepoName returns the repository name extracted from a repository URL, removing any ".git" suffix.
 func extractRepoName(repoURL string) string {
         parts := strings.Split(repoURL, "/")
         repoName := parts[len(parts)-1]
         return strings.TrimSuffix(repoName, ".git")
 }
 
+// runCommand executes a system command with the specified name and arguments, optionally displaying output based on the verbose flag.
 func runCommand(name string, args ...string) error {
         cmd := exec.Command(name, args...)
         
@@ -175,6 +189,8 @@ func runCommand(name string, args ...string) error {
         return cmd.Run()
 }
 
+// runGitCommand executes a git command with the specified arguments, logging its execution and output based on the verbosity setting.
+// Returns an error if the git command fails.
 func runGitCommand(args ...string) error {
         wd, _ := os.Getwd()
         logger.Info("Running git command", 
@@ -204,6 +220,9 @@ func runGitCommand(args ...string) error {
         return err
 }
 
+// runCodex executes the Codex CLI tool with the provided prompt and OpenAI API key.
+// The function sets the approval mode to "full-auto" and controls output visibility based on the verbose flag.
+// Returns an error if the Codex command fails to execute.
 func runCodex(prompt, apiKey string) error {
         cmd := exec.Command("codex", "--approval-mode", "full-auto", "-q", prompt)
         cmd.Env = append(os.Environ(), fmt.Sprintf("OPENAI_API_KEY=%s", apiKey))
@@ -220,6 +239,9 @@ func runCodex(prompt, apiKey string) error {
         return cmd.Run()
 }
 
+// createPullRequest creates a GitHub pull request using the provided Linear issue details and authentication token.
+// The pull request title and body are generated from the issue's title, description, and URL.
+// Returns an error if the pull request creation fails.
 func createPullRequest(issue *linear.IssueDetails, token string) error {
         prTitle := fmt.Sprintf("feat: %s", issue.Title)
         prBody := fmt.Sprintf("%s\n\nLinear Issue: %s", issue.Description, issue.URL)

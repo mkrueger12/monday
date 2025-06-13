@@ -29,6 +29,7 @@ var rootCmd = &cobra.Command{
         RunE: runMondayWorkflow,
 }
 
+// Execute runs the root CLI command and handles any execution errors by logging or printing them, then exits with a non-zero status on failure.
 func Execute() {
         if err := rootCmd.Execute(); err != nil {
                 if logger != nil {
@@ -40,12 +41,15 @@ func Execute() {
         }
 }
 
+// init configures persistent and required flags for the CLI, including verbose logging and the GitHub repository URL.
 func init() {
         rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
         rootCmd.Flags().StringVar(&repoURL, "repo-url", "", "GitHub repository URL (required)")
         rootCmd.MarkFlagRequired("repo-url")
 }
 
+// initLogger initializes the global logger with either development or production settings based on the verbose flag.
+// Exits the program if logger initialization fails.
 func initLogger() {
         var err error
         if verbose {
