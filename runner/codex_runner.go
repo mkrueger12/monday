@@ -4,11 +4,11 @@ import (
         "fmt"
         "os"
         "os/exec"
+        "regexp"
         "strings"
 
         "monday/config"
         "monday/linear"
-        "monday/gitops"
 )
 
 func CodexFlow(cfg *config.AppConfig, issueID string) error {
@@ -34,7 +34,7 @@ func CodexFlow(cfg *config.AppConfig, issueID string) error {
                 return fmt.Errorf("failed to fetch issue details: %w", err)
         }
 
-        branchName := gitops.SanitizeBranchName(issueID)
+        branchName := sanitizeBranchName(issueID)
         repoName := extractRepoName(cfg.RepoURL)
         
         fmt.Printf("🚀 Starting containerized workflow for issue %s\n", issueID)
@@ -153,4 +153,21 @@ func runInContainer(cfg *config.AppConfig, cmd []string) error {
         dockerCmd.Stderr = os.Stderr
         
         return dockerCmd.Run()
+}
+
+func sanitizeBranchName(name string) string {
+        if name == "" {
+                return "issue"
+        }
+
+        reg := regexp.MustCompile(`[^a-zA-Z0-9\-_]`)
+        sanitized := reg.ReplaceAllString(name, "-")
+
+        sanitized = strings.Trim(sanitized, "-")
+
+        if sanitized == "" {
+                return "issue"
+        }
+
+        return sanitized
 }
