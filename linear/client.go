@@ -390,7 +390,8 @@ func (c *Client) getInProgressStateID() (string, error) {
 
 // parseIssueIdentifier extracts team key and issue number from Linear issue identifiers.
 // It accepts identifiers in the format "TEAM-123" (e.g., "DEL-163", "ENG-42") and
-// returns the team key and numeric issue number for use in GraphQL queries.
+// parseIssueIdentifier parses a Linear issue identifier of the form "TEAM-123" into its team key and numeric issue number.
+// Returns an error if the identifier does not match the expected format or if the issue number is invalid.
 func parseIssueIdentifier(identifier string) (string, int, error) {
         // Regular expression to match Linear issue format: letters-digits
         re := regexp.MustCompile(`^([A-Z]+)-(\d+)$`)
