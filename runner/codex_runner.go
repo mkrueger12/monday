@@ -131,12 +131,15 @@ echo "✅ Workflow completed successfully"
 }
 
 func extractRepoName(repoURL string) string {
+        // Handle GitHub URLs like https://github.com/owner/repo or https://github.com/owner/repo.git
+        repoURL = strings.TrimSuffix(repoURL, ".git")
         parts := strings.Split(repoURL, "/")
         if len(parts) >= 2 {
+                owner := parts[len(parts)-2]
                 repo := parts[len(parts)-1]
-                return strings.TrimSuffix(repo, ".git")
+                return owner + "/" + repo
         }
-        return "unknown"
+        return "unknown/unknown"
 }
 
 func runInContainer(cfg *config.AppConfig, cmd []string) error {

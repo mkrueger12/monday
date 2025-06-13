@@ -63,9 +63,9 @@ func (app *Application) Run(args []string) error {
         var issueID string
         var issue *linear.IssueDetails
         
-        // Check if a specific issue ID was provided as first argument
-        if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-                issueID = args[0]
+        // Check if a specific issue ID was provided in the parsed configuration
+        if len(cfg.IssueIDs) > 0 {
+                issueID = cfg.IssueIDs[0] // Use the first issue ID provided
                 log.Printf("Using specified issue ID: %s", issueID)
                 
                 // Fetch the specific issue

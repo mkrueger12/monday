@@ -128,7 +128,7 @@ func ParseConfigFromArgs(args []string) (*AppConfig, error) {
         }, nil
 }
 
-// ParseCodexConfigFromArgs parses configuration for codex mode without expecting issue IDs
+// ParseCodexConfigFromArgs parses configuration for codex mode, handling both issue IDs and filter flags
 func ParseCodexConfigFromArgs(args []string) (*AppConfig, error) {
         // Initialize variables for flag parsing
         var concurrency int
@@ -165,6 +165,13 @@ func ParseCodexConfigFromArgs(args []string) (*AppConfig, error) {
                 return nil, err
         }
 
+        // Extract non-flag arguments (potential issue IDs)
+        remainingArgs := fs.Args()
+        var issueIDs []string
+        if len(remainingArgs) > 0 {
+                issueIDs = remainingArgs
+        }
+
         // Use CLI flag value or fall back to environment variable
         linearAPIKey := apiKey
         if linearAPIKey == "" {
@@ -185,7 +192,7 @@ func ParseCodexConfigFromArgs(args []string) (*AppConfig, error) {
 
         // Return configuration for codex mode
         return &AppConfig{
-                IssueIDs:         []string{}, // No issue IDs for codex mode parsing
+                IssueIDs:         issueIDs, // Include any issue IDs found in arguments
                 RepoURL:          repoURL,
                 LinearAPIKey:     linearAPIKey,
                 LinearEndpoint:   linearEndpoint,
