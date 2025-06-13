@@ -52,7 +52,7 @@ func initLogger() {
                 logger, err = zap.NewDevelopment()
         } else {
                 config := zap.NewProductionConfig()
-                config.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
+                config.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
                 logger, err = config.Build()
         }
         if err != nil {

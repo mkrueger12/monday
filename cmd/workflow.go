@@ -61,6 +61,12 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
         repoName := extractRepoName(repoURL)
         workDir := filepath.Join(".", repoName)
 
+        currentDir, _ := os.Getwd()
+        logger.Info("Starting repository operations", 
+                zap.String("current_dir", currentDir),
+                zap.String("repo_name", repoName),
+                zap.String("target_work_dir", workDir))
+
         fmt.Printf("📦 Cloning repository...\n")
         logger.Info("Cloning repository", zap.String("repo_url", repoURL))
         if err := runGitCommand("clone", repoURL); err != nil {
@@ -71,6 +77,9 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
         if err := os.Chdir(workDir); err != nil {
                 return fmt.Errorf("failed to change directory: %w", err)
         }
+        
+        newDir, _ := os.Getwd()
+        logger.Info("Successfully changed directory", zap.String("new_dir", newDir))
 
         branchName := issue.BranchName
         if branchName == "" {
@@ -91,9 +100,20 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
         }
 
         fmt.Printf("📝 Committing and pushing changes...\n")
+        
+        logger.Info("Checking git status before staging")
+        if err := runGitCommand("status", "--porcelain"); err != nil {
+                logger.Warn("Failed to check git status", zap.Error(err))
+        }
+        
         logger.Info("Staging changes")
         if err := runGitCommand("add", "."); err != nil {
                 return fmt.Errorf("failed to stage changes: %w", err)
+        }
+        
+        logger.Info("Checking staged changes")
+        if err := runGitCommand("diff", "--cached", "--name-only"); err != nil {
+                logger.Warn("Failed to check staged changes", zap.Error(err))
         }
 
         commitMsg := fmt.Sprintf("feat: %s\n\n%s\n\nLinear Issue: %s", issue.Title, issue.Description, issue.URL)
@@ -156,6 +176,11 @@ func runCommand(name string, args ...string) error {
 }
 
 func runGitCommand(args ...string) error {
+        wd, _ := os.Getwd()
+        logger.Info("Running git command", 
+                zap.Strings("args", args),
+                zap.String("working_dir", wd))
+        
         cmd := exec.Command("git", args...)
         
         if verbose {
@@ -166,8 +191,17 @@ func runGitCommand(args ...string) error {
                 cmd.Stderr = os.Stderr
         }
         
-        logger.Debug("Running git command", zap.Strings("args", args))
-        return cmd.Run()
+        err := cmd.Run()
+        if err != nil {
+                logger.Error("Git command failed", 
+                        zap.Strings("args", args),
+                        zap.String("working_dir", wd),
+                        zap.Error(err))
+        } else {
+                logger.Info("Git command completed successfully", zap.Strings("args", args))
+        }
+        
+        return err
 }
 
 func runCodex(prompt, apiKey string) error {
