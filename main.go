@@ -1,5 +1,5 @@
 // Package main implements the monday CLI tool for automating Linear issue development.
-// The tool fetches Linear issues and runs containerized Codex automation for development.
+// The tool fetches Linear issues and runs automated Codex workflows for development.
 package main
 
 import (
@@ -15,11 +15,11 @@ import (
 )
 
 // Application represents the main monday CLI application.
-// It orchestrates the containerized Codex workflow for automated development.
+// It orchestrates automated Codex workflows for development.
 type Application struct {}
 
 // main is the entry point for the monday CLI application.
-// It runs the containerized Codex workflow for automated development.
+// It runs automated Codex workflows for development.
 func main() {
         app := &Application{}
         if err := app.Run(os.Args[1:]); err != nil {
@@ -28,7 +28,7 @@ func main() {
 }
 
 // Run executes the main application logic with the provided command-line arguments.
-// It runs the containerized Codex workflow for automated development.
+// It runs automated Codex workflows for development.
 // Returns an error if any critical step fails.
 func (app *Application) Run(args []string) error {
         // Parse configuration for Codex mode
