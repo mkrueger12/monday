@@ -20,7 +20,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o monday .
 
 # Runtime stage
-FROM node:22-alpine
+FROM node:24-alpine
 
 ENV LINEAR_API_KEY=${LINEAR_API_KEY}
 ENV OPENAI_API_KEY=${OPENAI_API_KEY}
