@@ -51,12 +51,38 @@ type GraphQLResponse struct {
 // The structure varies based on the specific query being executed.
 type GraphQLData struct {
         Issues IssuesConnection `json:"issues"`
+        Teams  TeamsConnection  `json:"teams"`
 }
 
 // IssuesConnection represents a paginated collection of issues
 // following GraphQL connection patterns used by Linear.
 type IssuesConnection struct {
         Nodes []IssueDetails `json:"nodes"`
+}
+
+// TeamsConnection represents a paginated collection of teams
+type TeamsConnection struct {
+        Nodes []Team `json:"nodes"`
+}
+
+// Team represents a Linear team with projects
+type Team struct {
+        ID       string    `json:"id"`
+        Key      string    `json:"key"`
+        Name     string    `json:"name"`
+        Projects ProjectsConnection `json:"projects"`
+}
+
+// ProjectsConnection represents a paginated collection of projects
+type ProjectsConnection struct {
+        Nodes []Project `json:"nodes"`
+}
+
+// Project represents a Linear project
+type Project struct {
+        ID   string `json:"id"`
+        Name string `json:"name"`
+        Key  string `json:"key"`
 }
 
 // GraphQLError represents an error returned by the Linear GraphQL API
@@ -364,7 +390,8 @@ func (c *Client) getInProgressStateID() (string, error) {
 
 // parseIssueIdentifier extracts team key and issue number from Linear issue identifiers.
 // It accepts identifiers in the format "TEAM-123" (e.g., "DEL-163", "ENG-42") and
-// returns the team key and numeric issue number for use in GraphQL queries.
+// parseIssueIdentifier parses a Linear issue identifier of the form "TEAM-123" into its team key and numeric issue number.
+// Returns an error if the identifier does not match the expected format or if the issue number is invalid.
 func parseIssueIdentifier(identifier string) (string, int, error) {
         // Regular expression to match Linear issue format: letters-digits
         re := regexp.MustCompile(`^([A-Z]+)-(\d+)$`)
@@ -385,4 +412,146 @@ func parseIssueIdentifier(identifier string) (string, int, error) {
         }
 
         return teamKey, number, nil
+}
+
+// FetchIssuesByFilters retrieves issues based on team, project, and tag filters
+func (c *Client) FetchIssuesByFilters(teamKey, projectKey, tag string) ([]IssueDetails, error) {
+        var filters []string
+        var variables = make(map[string]interface{})
+        
+        if teamKey != "" {
+                filters = append(filters, "team: { key: { eq: $teamKey } }")
+                variables["teamKey"] = teamKey
+        }
+        
+        if projectKey != "" {
+                filters = append(filters, "project: { key: { eq: $projectKey } }")
+                variables["projectKey"] = projectKey
+        }
+        
+        if tag != "" {
+                filters = append(filters, "labels: { name: { eq: $tag } }")
+                variables["tag"] = tag
+        }
+        
+        filterStr := ""
+        if len(filters) > 0 {
+                filterStr = fmt.Sprintf("filter: { %s }", strings.Join(filters, ", "))
+        }
+        
+        query := fmt.Sprintf(`
+                query GetIssues($teamKey: String, $projectKey: String, $tag: String) {
+                        issues(%s, first: 50, orderBy: createdAt) {
+                                nodes {
+                                        id
+                                        title
+                                        description
+                                        branchName
+                                        url
+                                }
+                        }
+                }
+        `, filterStr)
+        
+        request := GraphQLRequest{
+                Query:     query,
+                Variables: variables,
+        }
+        
+        jsonData, err := json.Marshal(request)
+        if err != nil {
+                return nil, fmt.Errorf("failed to marshal GraphQL request: %w", err)
+        }
+        
+        req, err := http.NewRequest("POST", c.endpoint, bytes.NewBuffer(jsonData))
+        if err != nil {
+                return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+        }
+        
+        req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("Authorization", c.apiKey)
+        
+        resp, err := c.client.Do(req)
+        if err != nil {
+                return nil, fmt.Errorf("failed to execute HTTP request: %w", err)
+        }
+        defer resp.Body.Close()
+        
+        if resp.StatusCode != http.StatusOK {
+                body, _ := io.ReadAll(resp.Body)
+                return nil, fmt.Errorf("Linear API returned status %d: %s", resp.StatusCode, string(body))
+        }
+        
+        var response GraphQLResponse
+        if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+                return nil, fmt.Errorf("failed to decode GraphQL response: %w", err)
+        }
+        
+        if len(response.Errors) > 0 {
+                return nil, fmt.Errorf("GraphQL error: %s", response.Errors[0].Message)
+        }
+        
+        return response.Data.Issues.Nodes, nil
+}
+
+// FetchTeams retrieves all teams available to the authenticated user
+func (c *Client) FetchTeams() ([]Team, error) {
+        query := `
+                query GetTeams {
+                        teams {
+                                nodes {
+                                        id
+                                        key
+                                        name
+                                        projects {
+                                                nodes {
+                                                        id
+                                                        name
+                                                        key
+                                                }
+                                        }
+                                }
+                        }
+                }
+        `
+        
+        request := GraphQLRequest{
+                Query:     query,
+                Variables: map[string]interface{}{},
+        }
+        
+        jsonData, err := json.Marshal(request)
+        if err != nil {
+                return nil, fmt.Errorf("failed to marshal GraphQL request: %w", err)
+        }
+        
+        req, err := http.NewRequest("POST", c.endpoint, bytes.NewBuffer(jsonData))
+        if err != nil {
+                return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+        }
+        
+        req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("Authorization", c.apiKey)
+        
+        resp, err := c.client.Do(req)
+        if err != nil {
+                return nil, fmt.Errorf("failed to execute HTTP request: %w", err)
+        }
+        defer resp.Body.Close()
+        
+        if resp.StatusCode != http.StatusOK {
+                body, _ := io.ReadAll(resp.Body)
+                return nil, fmt.Errorf("Linear API returned status %d: %s", resp.StatusCode, string(body))
+        }
+        
+        var response GraphQLResponse
+        if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+                return nil, fmt.Errorf("failed to decode GraphQL response: %w", err)
+        }
+        
+        if len(response.Errors) > 0 {
+                return nil, fmt.Errorf("GraphQL error: %s", response.Errors[0].Message)
+        }
+        
+        return response.Data.Teams.Nodes, nil
 }
