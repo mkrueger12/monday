@@ -9,6 +9,7 @@ Monday is a command-line interface (CLI) tool designed to streamline the initial
 - 🤖 **AI-Powered Development**: Integrate with OpenAI Codex for automated code generation
 - 📝 **Structured Logging**: Comprehensive logging with Zap for debugging and monitoring
 - 🔐 **Secure Credentials**: Environment variable-based authentication
+- 🌐 **HTTP Server**: REST API endpoints for triggering workflows remotely
 
 ## Installation
 
@@ -46,13 +47,13 @@ export OPENAI_API_KEY="your-openai-api-key"
 
 ## Usage
 
-### Basic Usage
+### CLI Usage
 
 ```bash
 monday <linear_issue_id> --repo-url <github_repo_url>
 ```
 
-### Examples
+#### Examples
 
 ```bash
 # Using Linear issue ID
@@ -63,6 +64,58 @@ monday https://linear.app/company/issue/DEL-163 --repo-url https://github.com/us
 
 # With verbose logging
 monday DEL-163 --repo-url https://github.com/username/repo --verbose
+```
+
+### HTTP Server Usage
+
+Start the HTTP server to trigger workflows via REST API:
+
+```bash
+# Set server API key
+export SERVER_API_KEY="your-secure-api-key"
+
+# Start server (default port 8080)
+monday server
+
+# Start server on custom port
+monday server --port 9090
+```
+
+#### API Endpoints
+
+**Health Check**
+```bash
+GET /health
+```
+Returns: `OK` (200 status)
+
+**Trigger Workflow**
+```bash
+POST /trigger
+Content-Type: application/json
+X-API-Key: your-secure-api-key
+
+{
+  "linear_id": "DEL-163",
+  "github_url": "https://github.com/username/repo"
+}
+```
+Returns: `{"status":"started","message":"Workflow started for Linear issue DEL-163"}` (202 status)
+
+#### API Examples
+
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# Trigger workflow
+curl -X POST http://localhost:8080/trigger \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secure-api-key" \
+  -d '{
+    "linear_id": "DEL-163",
+    "github_url": "https://github.com/username/repo"
+  }'
 ```
 
 ## Workflow
@@ -88,11 +141,13 @@ When you run Monday, it performs the following steps:
 
 ## Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `LINEAR_API_KEY` | Linear API authentication token | ✅ |
-| `GITHUB_TOKEN` | GitHub personal access token | ✅ |
-| `OPENAI_API_KEY` | OpenAI API key for Codex | ✅ |
+| Variable | Description | Required | Used By |
+|----------|-------------|----------|---------|
+| `LINEAR_API_KEY` | Linear API authentication token | ✅ | CLI & Server |
+| `GITHUB_TOKEN` | GitHub personal access token | ✅ | CLI & Server |
+| `OPENAI_API_KEY` | OpenAI API key for Codex | ✅ | CLI & Server |
+| `SERVER_API_KEY` | API key for HTTP server authentication | ✅ (Server only) | Server |
+| `PORT` | HTTP server port (fallback if --port not specified) | ❌ | Server |
 
 ## Error Handling
 
