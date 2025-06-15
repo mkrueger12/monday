@@ -13,20 +13,9 @@ import (
         "monday/linear"
 )
 
-// runMondayWorkflow executes an automated workflow that integrates Linear issue tracking, Git repository operations, OpenAI Codex code generation, and GitHub pull request creation for a specified Linear issue.
-//
-// The workflow performs the following steps:
-//   - Validates required environment variables for Linear, GitHub, and OpenAI API access.
-//   - Fetches issue details from Linear and marks the issue as "In Progress".
-//   - Clones the associated Git repository and creates a new feature branch.
-//   - Runs the Codex CLI tool to generate code or content based on the issue description.
-//   - Stages, commits, and pushes changes to the remote repository.
-//   - Creates a GitHub pull request referencing the Linear issue.
-//
-// Returns an error if any step fails; otherwise, returns nil.
-func runMondayWorkflow(cmd *cobra.Command, args []string) error {
-        issueID := args[0]
-        
+// runWorkflow executes the core Monday workflow logic for a given Linear issue and GitHub repository.
+// This function can be called from both CLI and HTTP server contexts.
+func runWorkflow(issueID, repoURL string) error {
         fmt.Printf("🚀 Starting Monday workflow for %s\n", issueID)
         logger.Info("Starting Monday workflow", 
                 zap.String("issue_id", issueID),
@@ -147,6 +136,12 @@ func runMondayWorkflow(cmd *cobra.Command, args []string) error {
         fmt.Printf("✅ Monday workflow completed successfully!\n")
         logger.Info("Monday workflow completed successfully")
         return nil
+}
+
+// runMondayWorkflow is the CLI command handler that delegates to runWorkflow.
+func runMondayWorkflow(cmd *cobra.Command, args []string) error {
+        issueID := args[0]
+        return runWorkflow(issueID, repoURL)
 }
 
 // extractIssueID parses the input string to extract a Linear issue ID, handling both direct IDs and Linear issue URLs.

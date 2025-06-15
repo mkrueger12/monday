@@ -1,8 +1,8 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM cgr.dev/chainguard/go:latest AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git
+#RUN apk add --no-cache git
 
 # Set working directory
 WORKDIR /build
@@ -20,7 +20,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o monday .
 
 # Runtime stage
-FROM node:24-alpine
+FROM cgr.dev/chainguard/node:latest-dev
 
 ENV LINEAR_API_KEY=${LINEAR_API_KEY}
 ENV OPENAI_API_KEY=${OPENAI_API_KEY}
