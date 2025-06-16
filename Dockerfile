@@ -52,6 +52,8 @@ COPY --from=builder /build/monday /usr/local/bin/monday
 # Set working directory
 WORKDIR /workspace
 
+ENV CODEX_QUIET_MODE=1
+
 EXPOSE 8080
 
 # Set Monday CLI as entrypoint

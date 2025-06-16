@@ -20,3 +20,6 @@ primary_region = 'den'
   memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
+
+[checks]
+  services.http_checks
