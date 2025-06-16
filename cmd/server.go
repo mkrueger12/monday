@@ -18,8 +18,8 @@ var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Run HTTP server for Monday workflow",
 	Long: `Start an HTTP server that exposes endpoints to trigger the Monday workflow:
-- GET /health - Health check endpoint
-- POST /trigger - Trigger workflow with linear_id and github_url`,
+			- GET /health - Health check endpoint
+			- POST /trigger - Trigger workflow with linear_id and github_url`,
 	RunE: runServer,
 }
 
