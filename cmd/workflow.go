@@ -1,15 +1,18 @@
 package cmd
 
 import (
+        "context"
         "fmt"
         "os"
         "os/exec"
         "path/filepath"
         "strings"
+        "time"
 
         "github.com/spf13/cobra"
         "go.uber.org/zap"
 
+        "monday/internal/executil"
         "monday/linear"
 )
 
@@ -205,22 +208,43 @@ func runGitCommand(args ...string) error {
 }
 
 // runCodex executes the Codex CLI tool with the provided prompt and OpenAI API key.
-// The function sets the approval mode to "full-auto" and controls output visibility based on the verbose flag.
+// The function sets the approval mode to "full-auto" and includes timeout, retry logic, and output filtering.
 // Returns an error if the Codex command fails to execute.
 func runCodex(prompt, apiKey string) error {
-        cmd := exec.Command("codex", "--approval-mode", "full-auto", "-q", prompt)
-        cmd.Env = append(os.Environ(), fmt.Sprintf("OPENAI_API_KEY=%s", apiKey))
-        
-        if verbose {
-                cmd.Stdout = os.Stdout
-                cmd.Stderr = os.Stderr
-        } else {
-                cmd.Stdout = nil
-                cmd.Stderr = nil
-        }
-        
+        baseCmd := exec.Command("codex", "--approval-mode", "full-auto", "-q", prompt)
+        baseCmd.Env = append(os.Environ(), fmt.Sprintf("OPENAI_API_KEY=%s", apiKey))
+
         logger.Debug("Running Codex", zap.String("prompt", prompt))
-        return cmd.Run()
+
+        pagerFilter := func(s string) string {
+                lines := strings.Split(s, "\n")
+                var out []string
+                for _, l := range lines {
+                        if strings.TrimSpace(l) == "~" {
+                                continue
+                        }
+                        out = append(out, l)
+                }
+                return strings.Join(out, "\n")
+        }
+
+        opts := executil.RunOptions{
+                Timeout:      3 * time.Minute,
+                Retries:      2,
+                RetryDelay:   5 * time.Second,
+                FilterStdout: pagerFilter,
+                FilterStderr: pagerFilter,
+                Verbose:      verbose,
+        }
+
+        out, err := executil.RunWithCapture(context.Background(), baseCmd, opts)
+        if err != nil {
+                logger.Error("codex failed", zap.Error(err))
+                return fmt.Errorf("codex error: %w", err)
+        }
+
+        logger.Debug("Codex completed successfully", zap.Int("output_length", len(out)))
+        return nil
 }
 
 // createPullRequest creates a GitHub pull request using the provided Linear issue details and authentication token.
