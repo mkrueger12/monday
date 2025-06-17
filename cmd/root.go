@@ -12,6 +12,7 @@ var (
         logger   *zap.Logger
         repoURL  string
         verbose  bool
+        model    string
 )
 
 var rootCmd = &cobra.Command{
@@ -44,6 +45,7 @@ func Execute() {
 // init configures persistent and required flags for the CLI, including verbose logging and the GitHub repository URL.
 func init() {
         rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
+        rootCmd.PersistentFlags().StringVar(&model, "model", "o4-mini", "Codex model name to use")
         rootCmd.Flags().StringVar(&repoURL, "repo-url", "", "GitHub repository URL (required)")
         rootCmd.MarkFlagRequired("repo-url")
 }

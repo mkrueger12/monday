@@ -555,3 +555,70 @@ func (c *Client) FetchTeams() ([]Team, error) {
         
         return response.Data.Teams.Nodes, nil
 }
+
+// AddIssueComment posts a comment to a Linear issue.
+// Returns an error if the comment cannot be posted, but this should be treated as non-fatal.
+func (c *Client) AddIssueComment(issueID, body string) error {
+        mutation := `
+                mutation CreateComment($issueId: String!, $body: String!) {
+                        commentCreate(input: { issueId: $issueId, body: $body }) {
+                                success
+                        }
+                }
+        `
+
+        request := GraphQLRequest{
+                Query: mutation,
+                Variables: map[string]interface{}{
+                        "issueId": issueID,
+                        "body":    body,
+                },
+        }
+
+        jsonData, err := json.Marshal(request)
+        if err != nil {
+                return fmt.Errorf("failed to marshal GraphQL request: %w", err)
+        }
+
+        req, err := http.NewRequest("POST", c.endpoint, bytes.NewBuffer(jsonData))
+        if err != nil {
+                return fmt.Errorf("failed to create HTTP request: %w", err)
+        }
+
+        req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("Authorization", c.apiKey)
+
+        resp, err := c.client.Do(req)
+        if err != nil {
+                return fmt.Errorf("failed to execute HTTP request: %w", err)
+        }
+        defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK {
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("Linear API returned status %d: %s", resp.StatusCode, string(body))
+        }
+
+        var response struct {
+                Data struct {
+                        CommentCreate struct {
+                                Success bool `json:"success"`
+                        } `json:"commentCreate"`
+                } `json:"data"`
+                Errors []GraphQLError `json:"errors"`
+        }
+
+        if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+                return fmt.Errorf("failed to decode GraphQL response: %w", err)
+        }
+
+        if len(response.Errors) > 0 {
+                return fmt.Errorf("GraphQL error: %s", response.Errors[0].Message)
+        }
+
+        if !response.Data.CommentCreate.Success {
+                return fmt.Errorf("failed to create comment")
+        }
+
+        return nil
+}

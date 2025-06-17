@@ -127,10 +127,16 @@ func runWorkflow(issueID, repoURL string) error {
                 return fmt.Errorf("failed to push branch: %w", err)
         }
 
-        fmt.Printf("🚀 Creating pull request...\n")
-        logger.Info("Creating pull request")
-        if err := createPullRequest(issue, githubToken); err != nil {
-                return fmt.Errorf("failed to create pull request: %w", err)
+        fmt.Printf("💬 Adding branch link to Linear issue...\n")
+        logger.Info("Adding branch link to Linear issue")
+        branchURL := fmt.Sprintf("%s/tree/%s", repoURL, branchName)
+        comment := fmt.Sprintf("🚀 Branch created and pushed: [%s](%s)", branchName, branchURL)
+        
+        if err := linearClient.AddIssueComment(issue.ID, comment); err != nil {
+                logger.Warn("Failed to add comment to Linear issue", zap.Error(err))
+                fmt.Printf("⚠️  Warning: Could not add branch link to Linear issue\n")
+        } else {
+                fmt.Printf("✅ Posted branch link to Linear issue\n")
         }
 
         fmt.Printf("✅ Monday workflow completed successfully!\n")
@@ -203,7 +209,7 @@ func runGitCommand(args ...string) error {
 // The function sets the approval mode to "full-auto" and controls output visibility based on the verbose flag.
 // Returns an error if the Codex command fails to execute.
 func runCodex(prompt, apiKey string) error {
-        cmd := exec.Command("codex", "--approval-mode", "full-auto", "-q", prompt)
+        cmd := exec.Command("codex", "--model", model, "--approval-mode", "full-auto", "-q", prompt)
         cmd.Env = append(os.Environ(), fmt.Sprintf("OPENAI_API_KEY=%s", apiKey))
         
         if verbose {
@@ -215,27 +221,5 @@ func runCodex(prompt, apiKey string) error {
         }
         
         logger.Debug("Running Codex", zap.String("prompt", prompt))
-        return cmd.Run()
-}
-
-// createPullRequest creates a GitHub pull request using the provided Linear issue details and authentication token.
-// The pull request title and body are generated from the issue's title, description, and URL.
-// Returns an error if the pull request creation fails.
-func createPullRequest(issue *linear.IssueDetails, token string) error {
-        prTitle := fmt.Sprintf("feat: %s", issue.Title)
-        prBody := fmt.Sprintf("%s\n\nLinear Issue: %s", issue.Description, issue.URL)
-        
-        cmd := exec.Command("gh", "pr", "create", "--title", prTitle, "--body", prBody)
-        cmd.Env = append(os.Environ(), fmt.Sprintf("GITHUB_TOKEN=%s", token))
-        
-        if verbose {
-                cmd.Stdout = os.Stdout
-                cmd.Stderr = os.Stderr
-        } else {
-                cmd.Stdout = nil
-                cmd.Stderr = os.Stderr
-        }
-        
-        logger.Info("Creating PR", zap.String("title", prTitle))
         return cmd.Run()
 }
