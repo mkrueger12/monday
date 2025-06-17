@@ -203,7 +203,7 @@ func runGitCommand(args ...string) error {
 // The function sets the approval mode to "full-auto" and controls output visibility based on the verbose flag.
 // Returns an error if the Codex command fails to execute.
 func runCodex(prompt, apiKey string) error {
-        cmd := exec.Command("codex", "--approval-mode", "full-auto", "-q", prompt)
+        cmd := exec.Command("codex", "--model", model, "--approval-mode", "full-auto", "-q", prompt)
         cmd.Env = append(os.Environ(), fmt.Sprintf("OPENAI_API_KEY=%s", apiKey))
         
         if verbose {
