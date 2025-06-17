@@ -1,8 +1,5 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
-
-# Install build dependencies
-RUN apk add --no-cache git
+FROM cgr.dev/chainguard/go:latest AS builder
 
 # Set working directory
 WORKDIR /build
@@ -21,10 +18,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o monday .
 
 # Runtime stage
 FROM node:24-alpine
-
-ENV LINEAR_API_KEY=${LINEAR_API_KEY}
-ENV OPENAI_API_KEY=${OPENAI_API_KEY}
-ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 
 # Install core utilities and development tools
 RUN apk add --no-cache \
@@ -45,6 +38,8 @@ RUN ARCH=$(uname -m) && \
     && mv /tmp/gh_2.40.1_linux_${ARCH}/bin/gh /usr/local/bin/ \
     && rm -rf /tmp/gh_*
 
+RUN apk del curl ca-certificates
+
 # Install OpenAI Codex CLI
 RUN npm i -g @openai/codex
 
@@ -57,5 +52,9 @@ COPY --from=builder /build/monday /usr/local/bin/monday
 # Set working directory
 WORKDIR /workspace
 
+ENV CODEX_QUIET_MODE=1
+
+EXPOSE 8080
+
 # Set Monday CLI as entrypoint
-ENTRYPOINT []
+CMD ["monday", "server"]
