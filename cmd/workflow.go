@@ -31,9 +31,9 @@ func runWorkflow(issueID, repoURL string) error {
                 return fmt.Errorf("GITHUB_TOKEN environment variable is required")
         }
 
-        openaiAPIKey := os.Getenv("OPENAI_API_KEY")
-        if openaiAPIKey == "" {
-                return fmt.Errorf("OPENAI_API_KEY environment variable is required")
+        anthropicAPIKey := os.Getenv("ANTHROPIC_API_KEY")
+        if anthropicAPIKey == "" {
+                return fmt.Errorf("ANTHROPIC_API_KEY environment variable is required")
         }
 
         linearClient := linear.NewClient(linearAPIKey)
@@ -92,11 +92,11 @@ func runWorkflow(issueID, repoURL string) error {
                 return fmt.Errorf("failed to create branch: %w", err)
         }
 
-        fmt.Printf("🤖 Running Codex CLI...\n")
-        logger.Info("Running Codex CLI", zap.String("description", issue.Description))
-        codexPrompt := fmt.Sprintf("%s\n\n%s", issue.Title, issue.Description)
-        if err := runCodex(codexPrompt, openaiAPIKey); err != nil {
-                return fmt.Errorf("failed to run Codex: %w", err)
+        fmt.Printf("🤖 Running Claude Code...\n")
+        logger.Info("Running Claude Code", zap.String("description", issue.Description))
+        claudePrompt := fmt.Sprintf("%s\n\n%s", issue.Title, issue.Description)
+        if err := runClaudeCode(claudePrompt, anthropicAPIKey); err != nil {
+                return fmt.Errorf("failed to run Claude Code: %w", err)
         }
 
         fmt.Printf("📝 Committing and pushing changes...\n")
@@ -199,12 +199,12 @@ func runGitCommand(args ...string) error {
         return err
 }
 
-// runCodex executes the Codex CLI tool with the provided prompt and OpenAI API key.
-// The function sets the approval mode to "full-auto" and controls output visibility based on the verbose flag.
-// Returns an error if the Codex command fails to execute.
-func runCodex(prompt, apiKey string) error {
-        cmd := exec.Command("codex", "--approval-mode", "full-auto", "-q", prompt)
-        cmd.Env = append(os.Environ(), fmt.Sprintf("OPENAI_API_KEY=%s", apiKey))
+// runClaudeCode executes the Claude Code CLI tool with the provided prompt and Anthropic API key.
+// The function uses the Claude Code CLI for automated development and controls output visibility based on the verbose flag.
+// Returns an error if the Claude Code command fails to execute.
+func runClaudeCode(prompt, apiKey string) error {
+        cmd := exec.Command("claude", "code", prompt)
+        cmd.Env = append(os.Environ(), fmt.Sprintf("ANTHROPIC_API_KEY=%s", apiKey))
         
         if verbose {
                 cmd.Stdout = os.Stdout
@@ -214,7 +214,7 @@ func runCodex(prompt, apiKey string) error {
                 cmd.Stderr = nil
         }
         
-        logger.Debug("Running Codex", zap.String("prompt", prompt))
+        logger.Debug("Running Claude Code", zap.String("prompt", prompt))
         return cmd.Run()
 }
 
