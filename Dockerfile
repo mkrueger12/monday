@@ -40,8 +40,8 @@ RUN ARCH=$(uname -m) && \
 
 RUN apk del curl ca-certificates
 
-# Install OpenAI Codex CLI
-RUN npm i -g @openai/codex
+# Install Claude CLI
+RUN npm i -g @anthropic-ai/claude-cli
 
 # Create app directory
 RUN mkdir -p /app
@@ -52,7 +52,7 @@ COPY --from=builder /build/monday /usr/local/bin/monday
 # Set working directory
 WORKDIR /workspace
 
-ENV CODEX_QUIET_MODE=1
+# No environment variables needed for Claude CLI
 
 EXPOSE 8080
 

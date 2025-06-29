@@ -20,7 +20,7 @@ var rootCmd = &cobra.Command{
         Long: `Monday CLI automates the development workflow by:
 1. Fetching Linear issue details
 2. Cloning GitHub repository and creating feature branch
-3. Running Codex CLI for automated development
+3. Running Claude Code for automated development
 4. Committing changes and creating pull request`,
         Args: cobra.ExactArgs(1),
         PersistentPreRun: func(cmd *cobra.Command, args []string) {

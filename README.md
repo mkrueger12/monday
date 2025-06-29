@@ -6,7 +6,7 @@ Monday is a command-line interface (CLI) tool designed to streamline the initial
 
 - 🔗 **Linear Integration**: Fetch issue details and mark issues as "In Progress"
 - 🚀 **GitHub Automation**: Clone repositories, create feature branches, and open PRs
-- 🤖 **AI-Powered Development**: Integrate with OpenAI Codex for automated code generation
+- 🤖 **AI-Powered Development**: Integrate with Claude Code for automated development
 - 📝 **Structured Logging**: Comprehensive logging with Zap for debugging and monitoring
 - 🔐 **Secure Credentials**: Environment variable-based authentication
 - 🌐 **HTTP Server**: REST API endpoints for triggering workflows remotely
@@ -18,7 +18,7 @@ Monday is a command-line interface (CLI) tool designed to streamline the initial
 Ensure you have the following tools installed:
 - [Git](https://git-scm.com/)
 - [GitHub CLI (gh)](https://cli.github.com/)
-- [Codex CLI](https://github.com/your-codex-cli-repo) 
+- [Claude Code CLI](https://claude.ai/code) 
 
 ### Build from Source
 
@@ -35,7 +35,7 @@ Set the following environment variables:
 ```bash
 export LINEAR_API_KEY="your-linear-api-key"
 export GITHUB_TOKEN="your-github-token"
-export OPENAI_API_KEY="your-openai-api-key"
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
 ```
 
 ### Getting API Keys
@@ -43,7 +43,7 @@ export OPENAI_API_KEY="your-openai-api-key"
 1. **Linear API Key**: Go to Linear Settings → API → Create new API key
 2. **GitHub Token**: Go to GitHub Settings → Developer settings → Personal access tokens → Generate new token
    - Required scopes: `repo`, `workflow`
-3. **OpenAI API Key**: Get from [OpenAI Platform](https://platform.openai.com/api-keys)
+3. **Anthropic API Key**: Get from [Anthropic Console](https://console.anthropic.com/)
 
 ## Usage
 
@@ -126,7 +126,7 @@ When you run Monday, it performs the following steps:
 2. **Mark In Progress**: Updates the issue status to "In Progress"
 3. **Clone Repository**: Clones the specified GitHub repository
 4. **Create Branch**: Creates a feature branch using Linear's suggested branch name
-5. **Run Codex**: Executes Codex CLI with the issue description for automated development
+5. **Run Claude Code**: Executes Claude Code CLI with the issue description for automated development
 6. **Commit Changes**: Stages and commits all changes with a structured commit message
 7. **Push Branch**: Pushes the feature branch to origin
 8. **Create PR**: Opens a pull request with issue details
@@ -145,7 +145,7 @@ When you run Monday, it performs the following steps:
 |----------|-------------|----------|---------|
 | `LINEAR_API_KEY` | Linear API authentication token | ✅ | CLI & Server |
 | `GITHUB_TOKEN` | GitHub personal access token | ✅ | CLI & Server |
-| `OPENAI_API_KEY` | OpenAI API key for Codex | ✅ | CLI & Server |
+| `ANTHROPIC_API_KEY` | Anthropic API key for Claude Code | ✅ | CLI & Server |
 | `SERVER_API_KEY` | API key for HTTP server authentication | ✅ (Server only) | Server |
 | `PORT` | HTTP server port (fallback if --port not specified) | ❌ | Server |
 
@@ -156,7 +156,7 @@ Monday provides comprehensive error handling and logging:
 - **Missing Environment Variables**: Clear error messages for missing API keys
 - **API Failures**: Detailed error information for Linear/GitHub API issues
 - **Git Operations**: Informative messages for repository and branch operations
-- **Codex Integration**: Error handling for AI-powered development steps
+- **Claude Code Integration**: Error handling for AI-powered development steps
 
 ## Troubleshooting
 
@@ -169,9 +169,9 @@ Monday provides comprehensive error handling and logging:
    - Verify the repository URL is correct and accessible
    - Check your GitHub token has appropriate permissions
 
-3. **"failed to run Codex"**
-   - Ensure Codex CLI is installed and in your PATH
-   - Verify your OpenAI API key is valid
+3. **"failed to run Claude Code"**
+   - Ensure Claude Code CLI is installed and in your PATH
+   - Verify your Anthropic API key is valid
 
 ### Debug Mode
 
